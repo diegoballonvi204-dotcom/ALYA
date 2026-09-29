@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "LEGALMATCH Perú",
+    "slug": "legalmatch-pe",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "legalmatch",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#070D1E"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "pe.legalmatch.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "LEGALMATCH requiere acceso a la cámara para capturar la fotografía de tu carné del Colegio de Abogados o DNI.",
+        "NSPhotoLibraryUsageDescription": "LEGALMATCH requiere acceso a tus fotos para adjuntar resoluciones judiciales o documentos al expediente."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#070D1E"
+      },
+      "package": "pe.legalmatch.app",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#D4AF37"
+        }
+      ]
+    ]
+  }
+}
