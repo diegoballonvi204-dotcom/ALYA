@@ -45,12 +45,27 @@ export async function updateClientProfileAction(params: UpdateClientProfileParam
       return { success: false, error: "Debes iniciar sesión para editar tu perfil." };
     }
 
-    if (!params.firstName.trim() || !params.lastName.trim()) {
-      return { success: false, error: "Ingresa tus nombres y apellidos completos." };
+    const errors: string[] = [];
+
+    if (!params.firstName || !params.firstName.trim()) {
+      errors.push("El nombre es obligatorio.");
+    }
+    if (!params.lastName || !params.lastName.trim()) {
+      errors.push("Los apellidos son obligatorios.");
     }
 
-    if (!/^9\d{8}$/.test(params.phone.trim())) {
-      return { success: false, error: "Ingresa un número celular peruano válido (9 dígitos comenzando con 9)." };
+    if (!params.phone || !params.phone.trim()) {
+      errors.push("El número celular de contacto es obligatorio.");
+    } else if (!/^9\d{8}$/.test(params.phone.trim())) {
+      errors.push("El número celular debe ser un celular peruano válido (9 dígitos comenzando con 9).");
+    }
+
+    if (!params.documentNumber || !params.documentNumber.trim()) {
+      errors.push("El número de documento de identidad es obligatorio.");
+    }
+
+    if (errors.length > 0) {
+      return { success: false, error: errors.join(" • ") };
     }
 
     const { error: profileErr } = await supabase
@@ -74,7 +89,7 @@ export async function updateClientProfileAction(params: UpdateClientProfileParam
     revalidatePath("/dashboard");
     revalidatePath("/");
 
-    return { success: true, message: "Perfil actualizado con éxito." };
+    return { success: true, message: "Tus datos personales han sido actualizados con éxito." };
   } catch (err: any) {
     return { success: false, error: err.message || "Error al actualizar perfil." };
   }
@@ -94,16 +109,35 @@ export async function updateLawyerProfileAction(params: UpdateLawyerProfileParam
       return { success: false, error: "Debes iniciar sesión para editar tu perfil profesional." };
     }
 
-    if (!params.firstName.trim() || !params.lastName.trim()) {
-      return { success: false, error: "Ingresa tus nombres y apellidos completos." };
+    const errors: string[] = [];
+
+    if (!params.firstName || !params.firstName.trim()) {
+      errors.push("Los nombres son obligatorios.");
+    }
+    if (!params.lastName || !params.lastName.trim()) {
+      errors.push("Los apellidos son obligatorios.");
     }
 
-    if (params.bio.trim().length < 30) {
-      return { success: false, error: "Tu presentación profesional debe contener al menos 30 caracteres." };
+    // Phone validation: optional or must be valid 9 digits
+    const cleanPhone = params.phone ? params.phone.trim() : "";
+    if (cleanPhone && !/^9\d{8}$/.test(cleanPhone)) {
+      errors.push("El número celular debe tener 9 dígitos y comenzar con 9 (ej: 987654321).");
+    }
+
+    if (!params.bio || params.bio.trim().length < 30) {
+      errors.push("Tu presentación profesional debe contener al menos 30 caracteres explicativos.");
     }
 
     if (!params.virtualAttention && !params.physicalAttention) {
-      return { success: false, error: "Debes seleccionar al menos una modalidad de atención (virtual o presencial)." };
+      errors.push("Debes seleccionar al menos una modalidad de atención (virtual o presencial).");
+    }
+
+    if (params.yearsExperience < 0 || params.yearsExperience > 70) {
+      errors.push("Los años de experiencia deben estar entre 0 y 70 años.");
+    }
+
+    if (errors.length > 0) {
+      return { success: false, error: errors.join(" • ") };
     }
 
     // 1. Actualizar datos de usuario en profiles
@@ -112,7 +146,7 @@ export async function updateLawyerProfileAction(params: UpdateLawyerProfileParam
       .update({
         first_name: params.firstName.trim(),
         last_name: params.lastName.trim(),
-        phone: params.phone.trim(),
+        phone: cleanPhone || null,
         city: params.city,
         updated_at: new Date().toISOString(),
       })
@@ -130,7 +164,7 @@ export async function updateLawyerProfileAction(params: UpdateLawyerProfileParam
       .maybeSingle();
 
     if (lpFetchErr || !lawyer) {
-      return { success: false, error: "Perfil de abogado no encontrado." };
+      return { success: false, error: "Perfil de abogado no encontrado en la base de datos." };
     }
 
     // 3. Actualizar lawyer_profiles
@@ -139,10 +173,10 @@ export async function updateLawyerProfileAction(params: UpdateLawyerProfileParam
       .update({
         bio: params.bio.trim(),
         years_experience: params.yearsExperience,
-        consultation_price: params.consultationPrice || null,
+        consultation_price: params.consultationPrice && params.consultationPrice > 0 ? params.consultationPrice : null,
         virtual_attention: params.virtualAttention,
         physical_attention: params.physicalAttention,
-        address_office: params.addressOffice?.trim() || null,
+        address_office: params.physicalAttention && params.addressOffice ? params.addressOffice.trim() : null,
         is_available: params.isAvailable ?? true,
         updated_at: new Date().toISOString(),
       })
@@ -160,11 +194,18 @@ export async function updateLawyerProfileAction(params: UpdateLawyerProfileParam
         .delete()
         .eq("lawyer_id", lawyer.id);
 
-      // Insertar nuevas
-      const specPayload = params.specialties.map((s) => ({
+      // Deduplicate by specialtyId
+      const uniqueMap = new Map<number, { specialtyId: number; experienceYears: number; isPrimary: boolean }>();
+      for (const s of params.specialties) {
+        if (!uniqueMap.has(s.specialtyId)) {
+          uniqueMap.set(s.specialtyId, s);
+        }
+      }
+
+      const specPayload = Array.from(uniqueMap.values()).map((s) => ({
         lawyer_id: lawyer.id,
         specialty_id: s.specialtyId,
-        experience_years: s.experienceYears,
+        experience_years: Math.max(0, s.experienceYears || 0),
         is_primary: s.isPrimary,
       }));
 
@@ -174,6 +215,10 @@ export async function updateLawyerProfileAction(params: UpdateLawyerProfileParam
 
       if (specInsertErr) {
         console.error("Error al actualizar especialidades:", specInsertErr);
+        return {
+          success: false,
+          error: `Los datos se guardaron pero ocurrió un error en especialidades: ${specInsertErr.message}`,
+        };
       }
     }
 
@@ -181,7 +226,7 @@ export async function updateLawyerProfileAction(params: UpdateLawyerProfileParam
     revalidatePath("/lawyer/dashboard");
     revalidatePath("/");
 
-    return { success: true, message: "Perfil profesional actualizado exitosamente." };
+    return { success: true, message: "Tu perfil profesional y especialidades han sido actualizados con éxito." };
   } catch (err: any) {
     return { success: false, error: err.message || "Error al actualizar perfil profesional." };
   }
