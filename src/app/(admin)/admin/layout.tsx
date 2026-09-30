@@ -8,6 +8,7 @@ import {
   ExternalLink,
   ShieldCheck,
   Scale,
+  CreditCard,
 } from "lucide-react";
 
 export default async function AdminLayout({
@@ -69,6 +70,13 @@ export default async function AdminLayout({
               >
                 <UserCheck className="w-4 h-4 text-[#2563EB]" />
                 Verificaciones
+              </Link>
+              <Link
+                href="/admin/subscriptions"
+                className="flex items-center gap-2 rounded-xl px-3.5 py-2 text-slate-600 hover:bg-slate-100 hover:text-[#0F172A] transition-colors"
+              >
+                <CreditCard className="w-4 h-4 text-[#2563EB]" />
+                Suscripciones
               </Link>
               <Link
                 href="/admin/audit"

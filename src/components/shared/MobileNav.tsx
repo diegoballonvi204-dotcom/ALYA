@@ -168,15 +168,27 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
             <div className="my-2 border-t border-slate-200/80 pt-4">
               {user ? (
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 border border-slate-200/80 shadow-xs">
+                  <Link
+                    href={
+                      normalizedRole === "lawyer"
+                        ? "/lawyer/profile"
+                        : normalizedRole === "admin" || normalizedRole === "verifier"
+                        ? "/admin"
+                        : "/profile"
+                    }
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 border border-slate-200/80 shadow-xs hover:bg-slate-100 transition-colors"
+                  >
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F172A] text-white font-bold text-xs">
                       {fullName ? fullName.charAt(0) : "U"}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-[#0F172A] truncate">{fullName || user.email}</p>
-                      <p className="text-[10px] text-blue-600 uppercase tracking-wider font-mono font-bold">{role}</p>
+                      <p className="text-[10px] text-blue-600 uppercase tracking-wider font-mono font-bold">
+                        {role} • Ver Perfil
+                      </p>
                     </div>
-                  </div>
+                  </Link>
 
                   <form action={logoutAction} className="pt-2">
                     <button
