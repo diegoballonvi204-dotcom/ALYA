@@ -39,7 +39,7 @@ export async function uploadCaseDocumentAction(formData: UploadCaseDocValues) {
   if (!isClient) {
     const { data: match } = await supabase
       .from("matches")
-      .select("id, lawyer_id, status, lawyer_profiles!inner(user_id)")
+      .select("id, lawyer_id, status, lawyer_profiles!inner(id, user_id)")
       .eq("case_id", validated.data.caseId)
       .eq("status", "matched")
       .eq("lawyer_profiles.user_id", user.id)
@@ -47,6 +47,40 @@ export async function uploadCaseDocumentAction(formData: UploadCaseDocValues) {
 
     if (!match) {
       return { error: "No tienes permiso para adjuntar documentos a este expediente." };
+    }
+
+    // Validar cuota de almacenamiento Cloud según el plan de suscripción del abogado
+    const { data: sub } = await supabase
+      .from("lawyer_subscriptions")
+      .select(`
+        plan_id,
+        subscription_plans (
+          storage_limit_mb,
+          name
+        )
+      `)
+      .eq("lawyer_id", match.lawyer_id)
+      .maybeSingle();
+
+    const storageLimitMb = (sub?.subscription_plans as any)?.storage_limit_mb ?? 50; // Starter: 50MB
+    const storageLimitBytes = storageLimitMb * 1024 * 1024;
+
+    // Calcular bytes totales subidos por este abogado en la plataforma
+    const { data: userDocs } = await supabase
+      .from("case_documents")
+      .select("file_size_bytes")
+      .eq("uploaded_by", user.id);
+
+    const currentUsedBytes = (userDocs || []).reduce(
+      (sum, d) => sum + (d.file_size_bytes || 0),
+      0
+    );
+
+    if (currentUsedBytes + validated.data.fileSizeBytes > storageLimitBytes) {
+      const usedMb = Math.round((currentUsedBytes / (1024 * 1024)) * 10) / 10;
+      return {
+        error: `Has alcanzado el límite de almacenamiento (${usedMb} MB de ${storageLimitMb} MB) de tu plan actual. Actualiza a ALYA Pro o Élite para obtener hasta 10 GB de bóveda legal digital.`,
+      };
     }
   }
 

@@ -63,6 +63,7 @@ export interface SubscriptionInvoice {
   id: string;
   subscription_id: string;
   lawyer_id: string;
+  target_plan_id?: string | null;
   amount_pen: number;
   status: InvoiceStatus;
   payment_method: PaymentMethod;
@@ -74,7 +75,36 @@ export interface SubscriptionInvoice {
   invoice_number: string | null;
   invoice_pdf_url: string | null;
   paid_at: string | null;
+  rejection_reason?: string | null;
   created_at: string;
+  target_plan?: SubscriptionPlan;
+  lawyer_profiles?: {
+    id: string;
+    bar_number: string;
+    bar_association: string;
+    profiles?: {
+      first_name: string;
+      last_name: string;
+      email?: string;
+    } | null;
+  };
+}
+
+export interface SubscriptionMetrics {
+  totalActive: number;
+  totalTrialing: number;
+  totalPastDue: number;
+  pendingReviewCount: number;
+  estimatedMrr: number;
+  totalCollectedPen: number;
+  arpuPen: number;
+  trialToPaidConversionRate: number;
+  churnRate: number;
+  tierCounts: {
+    starter: number;
+    pro: number;
+    elite: number;
+  };
 }
 
 export interface MatchQuotaResult {

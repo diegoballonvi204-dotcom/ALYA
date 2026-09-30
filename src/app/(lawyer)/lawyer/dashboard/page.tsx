@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ShieldCheck, Briefcase, Star, MapPin, CheckCircle, Clock, Zap } from "lucide-react";
 import CompatibleCaseCard from "@/components/lawyer/CompatibleCaseCard";
 import LawyerTierBadge from "@/components/lawyer/LawyerTierBadge";
+import SubscriptionExpiryBanner from "@/components/lawyer/SubscriptionExpiryBanner";
 import { getMyLawyerSubscriptionAction } from "@/actions/subscription.actions";
 
 export default async function LawyerDashboardPage({
@@ -34,9 +35,16 @@ export default async function LawyerDashboardPage({
 
   // 1.1 Obtener suscripción del abogado
   const subRes = await getMyLawyerSubscriptionAction();
-  const currentPlan = subRes.plan || { tier: "starter" as const, name: "Básico", match_quota: 3 };
+  const currentPlan = subRes.plan || {
+    tier: "starter" as const,
+    name: "Básico",
+    match_quota: 3,
+    has_radar_priority: false,
+    has_ai_assistant: false,
+  };
   const matchesUsed = subRes.subscription?.matches_used_this_period ?? 0;
   const maxQuota = currentPlan.match_quota ?? 3;
+  const hasRadarPriority = currentPlan.has_radar_priority ?? false;
 
   // 2. Obtener especialidades del abogado
   const { data: lawyerSpecialties } = await supabase
@@ -44,7 +52,7 @@ export default async function LawyerDashboardPage({
     .select("*, specialties(*)")
     .eq("lawyer_id", lawyer.id);
 
-  // 3. Obtener matches persistidos del abogado
+  // 3. Obtener matches persistidos del abogado (con created_at de casos)
   const { data: matches } = await supabase
     .from("matches")
     .select(`
@@ -62,6 +70,7 @@ export default async function LawyerDashboardPage({
         modality,
         urgency,
         is_confidential,
+        created_at,
         specialties (name)
       )
     `)
@@ -71,13 +80,13 @@ export default async function LawyerDashboardPage({
     .limit(12);
 
   // 4. Si no hay matches directos, buscar casos abiertos afines a sus especialidades
-  let displayCases: Array<{
+  let rawCases: Array<{
     caseItem: any;
     matchInfo?: any;
   }> = [];
 
   if (matches && matches.length > 0) {
-    displayCases = matches.map((m: any) => ({
+    rawCases = matches.map((m: any) => ({
       caseItem: m.cases,
       matchInfo: {
         id: m.id,
@@ -99,15 +108,49 @@ export default async function LawyerDashboardPage({
       .limit(10);
 
     if (openCases) {
-      displayCases = openCases.map((c) => ({
+      rawCases = openCases.map((c) => ({
         caseItem: c,
         matchInfo: null,
       }));
     }
   }
 
+  // 5. Aplicar lógica de Radar VIP (15 minutos de exclusividad para Élite)
+  const isWithin15Min = (createdAtStr?: string) => {
+    if (!createdAtStr) return false;
+    const diffMinutes = (Date.now() - new Date(createdAtStr).getTime()) / (1000 * 60);
+    return diffMinutes >= 0 && diffMinutes < 15;
+  };
+
+  const displayCases = rawCases
+    .filter((item) => {
+      const isUrgent = item.caseItem.urgency === "immediate" || item.caseItem.urgency === "high";
+      const isExclusiveTime = isWithin15Min(item.caseItem.created_at);
+
+      // Si es urgente y está dentro de los 15 minutos: solo planes Élite con has_radar_priority
+      if (isUrgent && isExclusiveTime && !hasRadarPriority) {
+        return false;
+      }
+      return true;
+    })
+    .map((item) => {
+      const isUrgent = item.caseItem.urgency === "immediate" || item.caseItem.urgency === "high";
+      const isExclusiveTime = isWithin15Min(item.caseItem.created_at);
+      return {
+        ...item,
+        isRadarVip: hasRadarPriority && isUrgent && isExclusiveTime,
+      };
+    });
+
   return (
     <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
+      {/* Alerta Preventiva de Vencimiento de Membresía / Gracia */}
+      <SubscriptionExpiryBanner
+        status={subRes.subscription?.status || "active"}
+        daysRemaining={subRes.daysRemaining ?? 30}
+        planName={currentPlan.name}
+        tier={currentPlan.tier}
+      />
       {/* Onboarding Complete Success Toast */}
       {params.onboarding === "complete" && (
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
@@ -223,6 +266,7 @@ export default async function LawyerDashboardPage({
                 key={item.caseItem.id}
                 caseItem={item.caseItem}
                 matchInfo={item.matchInfo}
+                isRadarVip={item.isRadarVip}
               />
             ))}
           </div>

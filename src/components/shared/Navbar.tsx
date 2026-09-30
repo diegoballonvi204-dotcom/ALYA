@@ -135,15 +135,25 @@ export async function Navbar() {
           {user ? (
             <div className="flex items-center gap-3">
               <NotificationBell />
-              <div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-1.5 text-xs text-[#0F172A] shadow-xs">
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F172A] text-white text-[10px] font-bold">
+              <Link
+                href={
+                  normalizedRole === "lawyer"
+                    ? "/lawyer/profile"
+                    : normalizedRole === "admin" || normalizedRole === "verifier"
+                    ? "/admin"
+                    : "/profile"
+                }
+                className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 px-3 py-1.5 text-xs text-[#0F172A] shadow-xs transition-colors cursor-pointer group"
+                title="Ver y editar mi perfil"
+              >
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F172A] text-white text-[10px] font-bold group-hover:bg-blue-600 transition-colors">
                   {fullName ? fullName.charAt(0) : "U"}
                 </div>
                 <span className="max-w-[130px] truncate font-bold">{fullName || user.email}</span>
                 <span className="rounded bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 uppercase font-mono border border-blue-200">
                   {role}
                 </span>
-              </div>
+              </Link>
               <form action={logoutAction}>
                 <button
                   type="submit"

@@ -70,6 +70,74 @@ export async function createCaseAction(formData: CaseFormValues) {
     if (matchInsertErr) {
       console.error("Error insertando matches iniciales:", matchInsertErr);
     }
+
+    // 3.1 Notificaciones VIP y Alertas WhatsApp para suscriptores Élite (Ley N.° 29733: sin datos personales del cliente)
+    try {
+      const lawyerIds = scoredLawyers.map((l: any) => l.lawyer_id);
+      const { data: eliteLawyers } = await supabase
+        .from("lawyer_subscriptions")
+        .select(`
+          lawyer_id,
+          subscription_plans!inner (
+            has_whatsapp_alerts,
+            tier
+          ),
+          lawyer_profiles!inner (
+            user_id,
+            profiles:user_id (
+              first_name,
+              phone
+            )
+          )
+        `)
+        .in("lawyer_id", lawyerIds)
+        .eq("subscription_plans.has_whatsapp_alerts", true)
+        .in("status", ["active", "trialing"]);
+
+      if (eliteLawyers && eliteLawyers.length > 0) {
+        const notifPayloads = eliteLawyers.map((el: any) => ({
+          user_id: el.lawyer_profiles.user_id,
+          type: "radar_vip_alert",
+          title: "⚡ Radar VIP: Caso de Alta Afinidad Detectado",
+          message: `Nuevo caso afín en ${validated.data.city} (Urgencia ${validated.data.urgency.toUpperCase()}). Cuentas con 15 minutos de exclusividad en tu feed profesional.`,
+          data: {
+            case_id: newCase.id,
+            urgency: validated.data.urgency,
+            city: validated.data.city,
+            specialty_id: validated.data.specialtyId,
+            whatsapp_dispatched: true,
+          },
+        }));
+
+        await supabase.from("notifications").insert(notifPayloads);
+
+        // Envío asíncrono seguro a webhook de WhatsApp (si está configurado)
+        const whatsappWebhookUrl = process.env.WHATSAPP_NOTIFICATION_WEBHOOK_URL;
+        if (whatsappWebhookUrl) {
+          for (const el of eliteLawyers) {
+            const lawyerPhone = (el.lawyer_profiles.profiles as any)?.phone;
+            if (lawyerPhone) {
+              fetch(whatsappWebhookUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  to: lawyerPhone,
+                  template: "radar_vip_new_case",
+                  parameters: {
+                    lawyerName: (el.lawyer_profiles.profiles as any)?.first_name || "Doctor(a)",
+                    urgency: validated.data.urgency.toUpperCase(),
+                    city: validated.data.city,
+                    portalUrl: `${process.env.NEXT_PUBLIC_APP_URL || "https://alya.legal"}/lawyer/dashboard`,
+                  },
+                }),
+              }).catch((e) => console.error("Error enviando webhook WhatsApp VIP:", e));
+            }
+          }
+        }
+      }
+    } catch (vipNotifErr) {
+      console.error("Error procesando alertas VIP:", vipNotifErr);
+    }
   }
 
   revalidatePath("/dashboard");

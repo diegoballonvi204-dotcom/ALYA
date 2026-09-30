@@ -1023,8 +1023,10 @@ export type Database = {
           lawyer_id: string
           paid_at: string | null
           payment_method: string
+          rejection_reason: string | null
           status: string
           subscription_id: string
+          target_plan_id: string | null
           tax_id_number: string | null
           tax_legal_name: string | null
           voucher_url: string | null
@@ -1040,8 +1042,10 @@ export type Database = {
           lawyer_id: string
           paid_at?: string | null
           payment_method: string
+          rejection_reason?: string | null
           status: string
           subscription_id: string
+          target_plan_id?: string | null
           tax_id_number?: string | null
           tax_legal_name?: string | null
           voucher_url?: string | null
@@ -1057,8 +1061,10 @@ export type Database = {
           lawyer_id?: string
           paid_at?: string | null
           payment_method?: string
+          rejection_reason?: string | null
           status?: string
           subscription_id?: string
+          target_plan_id?: string | null
           tax_id_number?: string | null
           tax_legal_name?: string | null
           voucher_url?: string | null
@@ -1076,6 +1082,13 @@ export type Database = {
             columns: ["subscription_id"]
             isOneToOne: false
             referencedRelation: "lawyer_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscription_invoices_target_plan_id_fkey"
+            columns: ["target_plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
             referencedColumns: ["id"]
           },
         ]
@@ -1221,6 +1234,7 @@ export type Database = {
         }
         Returns: string
       }
+      cron_subscription_dunning_sweep: { Args: never; Returns: Json }
       is_admin: { Args: never; Returns: boolean }
       is_admin_or_verifier: { Args: never; Returns: boolean }
       resolve_arco_request: {

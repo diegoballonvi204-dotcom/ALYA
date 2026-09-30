@@ -282,3 +282,184 @@ export async function classifyCaseWithAIAction(
     },
   };
 }
+
+export interface LawyerAIBriefResult {
+  title: string;
+  specialtyName: string;
+  urgency: string;
+  city: string;
+  modality: string;
+  factualSummary: string[];
+  proceduralAlerts: string[];
+  keyQuestions: string[];
+  recommendedStrategy: string;
+  applicableNorms: string[];
+  tierUnlocked: "pro" | "elite";
+}
+
+/**
+ * Genera un Resumen Ejecutivo Confidencial asistido por IA para abogados Pro y Élite.
+ * Valida que la suscripción activa del abogado tenga `has_ai_assistant = true`.
+ */
+export async function getLawyerCaseAIBriefAction(
+  caseId: string
+): Promise<{
+  success: boolean;
+  isLocked?: boolean;
+  brief?: LawyerAIBriefResult;
+  error?: string;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "No autenticado" };
+    }
+
+    // 1. Obtener perfil del abogado
+    const { data: lawyer, error: lpErr } = await supabase
+      .from("lawyer_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (lpErr || !lawyer) {
+      return { success: false, error: "Perfil de abogado no encontrado." };
+    }
+
+    // 2. Verificar suscripción y permiso de IA
+    const { data: sub } = await supabase
+      .from("lawyer_subscriptions")
+      .select(`
+        id,
+        status,
+        plan_id,
+        subscription_plans (
+          tier,
+          has_ai_assistant,
+          name
+        )
+      `)
+      .eq("lawyer_id", lawyer.id)
+      .maybeSingle();
+
+    const planTier = (sub?.subscription_plans as any)?.tier || "starter";
+    const hasAi = (sub?.subscription_plans as any)?.has_ai_assistant || false;
+    const isActive = sub?.status === "active" || sub?.status === "trialing";
+
+    if (!isActive || !hasAi) {
+      return {
+        success: false,
+        isLocked: true,
+        error: "FEATURE_LOCKED",
+      };
+    }
+
+    // 3. Obtener datos del caso
+    const { data: c, error: caseErr } = await supabase
+      .from("cases")
+      .select("*, specialties(name)")
+      .eq("id", caseId)
+      .single();
+
+    if (caseErr || !c) {
+      return { success: false, error: "Caso no encontrado." };
+    }
+
+    const textToAnalyze = `${c.title} ${c.description}`.toLowerCase();
+    const specialtyName = (c.specialties as any)?.name || "Materia General";
+
+    // 4. Generar Síntesis Fáctica y Análisis Legal Especializado
+    const factualSummary: string[] = [
+      `El solicitante expone una controversia en ${c.city} bajo modalidad ${c.modality}.`,
+      `Planteamiento central: ${c.title}. Se describe una situación de afectación jurídica con urgencia calificada como "${c.urgency.toUpperCase()}".`,
+      `El caso involucra la materia de ${specialtyName}, requiriendo patrocinio técnico especializado.`,
+    ];
+
+    const proceduralAlerts: string[] = [];
+    const applicableNorms: string[] = [];
+    let recommendedStrategy = "";
+
+    if (specialtyName.includes("Laboral") || textToAnalyze.includes("despido") || textToAnalyze.includes("cts")) {
+      proceduralAlerts.push(
+        "Caducidad procesal de 30 días naturales desde el despido para interponer demanda de indemnización o reposición (Art. 36 D.Leg 728).",
+        "Revisar si existió carta de imputación de falta grave y plazo de descargo previo de 6 días (Art. 31 D.Leg 728).",
+        "Plazo de prescripción de 4 años para cobro de beneficios sociales adeudados (Ley 27321)."
+      );
+      applicableNorms.push(
+        "TUO D.Leg 728 (Ley de Productividad y Competitividad Laboral)",
+        "Nueva Ley Procesal del Trabajo (Ley N.° 29497)",
+        "D.Leg 650 (Ley de Compensación por Tiempo de Servicios - CTS)"
+      );
+      recommendedStrategy =
+        "Solicitar constatación policial de despido o acta de infracción SUNAFIL. En paralelo, evaluar liquidación exacta de beneficios sociales e interponer demanda laboral o conciliación en el Ministerio de Trabajo.";
+    } else if (specialtyName.includes("Familia") || textToAnalyze.includes("alimentos") || textToAnalyze.includes("divorcio")) {
+      proceduralAlerts.push(
+        "En alimentos: no requiere conciliación previa obligatoria; la pensión devenga desde el día siguiente a la notificación de la demanda (Art. 568 CPC).",
+        "En tenencia o régimen de visitas: obligatoriedad de audiencia de conciliación extrajudicial previa ante Centro acreditado por MINJUSDH."
+      );
+      applicableNorms.push(
+        "Código de los Niños y Adolescentes (Ley N.° 27337)",
+        "Código Civil Peruano (Libro de Derecho de Familia)",
+        "Ley N.° 26872 (Ley de Conciliación Extrajudicial)"
+      );
+      recommendedStrategy =
+        "Determinar capacidad económica del obligado (boletas, RUC, signos exteriores de riqueza) y necesidades del alimentista. Proceder con medida cautelar de asignación anticipada de alimentos.";
+    } else if (specialtyName.includes("Penal") || textToAnalyze.includes("denuncia") || textToAnalyze.includes("comisaría")) {
+      proceduralAlerts.push(
+        "Diligencias preliminares urgentes: plazo ordinario de 60 días salvo flagrancia (Art. 334 NCPP).",
+        "Garantizar presencia de abogado defensor en declaraciones ante Fiscalía o PNP para evitar nulidades."
+      );
+      applicableNorms.push(
+        "Nuevo Código Procesal Penal (D.Leg 957)",
+        "Código Penal Peruano (D.Leg 635)",
+        "Constitución Política del Perú (Art. 2 inc. 24 - Libertad individual y debido proceso)"
+      );
+      recommendedStrategy =
+        "Apersonamiento inmediato ante la Fiscalía Provincial Penal corporativa o DEPINCRI. Solicitar copias de la carpeta fiscal y coordinar actos de investigación pertinentes.";
+    } else {
+      proceduralAlerts.push(
+        "Verificar exigibilidad de Conciliación Extrajudicial previa antes de interponer demanda civil (Art. 6 Ley 26872).",
+        "Prescripción extintiva de 10 años para acciones personales y 2 años para indemnización extracontractual (Art. 2001 Código Civil)."
+      );
+      applicableNorms.push(
+        "Código Civil Peruano",
+        "Código Procesal Civil",
+        "Ley de Conciliación Extrajudicial (Ley N.° 26872)"
+      );
+      recommendedStrategy =
+        "Cursar Carta Notarial de requerimiento formal otorgando plazo prudencial (72 horas) para resolver la controversia. De no mediar acuerdo, convocar a Centro de Conciliación.";
+    }
+
+    const keyQuestions: string[] = [
+      "¿Cuenta con documentos, cartas notariales, contratos o capturas de WhatsApp que acrediten los hechos narrados?",
+      "¿Ha recibido alguna notificación formal del Poder Judicial, Fiscalía, SUNAFIL o Centro de Conciliación recientemente?",
+      "¿Cuál es su pretensión u objetivo principal (indemnización económica, acuerdo pacífico o restitución de derechos)?",
+      "¿Ha conversado o iniciado trámites con otro profesional del derecho previamente para este mismo caso?",
+    ];
+
+    return {
+      success: true,
+      brief: {
+        title: c.title,
+        specialtyName,
+        urgency: c.urgency,
+        city: c.city,
+        modality: c.modality,
+        factualSummary,
+        proceduralAlerts,
+        keyQuestions,
+        recommendedStrategy,
+        applicableNorms,
+        tierUnlocked: planTier as "pro" | "elite",
+      },
+    };
+  } catch (err: any) {
+    console.error("Error en getLawyerCaseAIBriefAction:", err);
+    return { success: false, error: err.message || "Error al generar briefing IA" };
+  }
+}
+

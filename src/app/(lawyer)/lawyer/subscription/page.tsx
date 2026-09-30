@@ -1,7 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getMyLawyerSubscriptionAction, getSubscriptionPlansAction } from "@/actions/subscription.actions";
+import { getMyInvoicesAction } from "@/actions/billing.actions";
 import LawyerTierBadge from "@/components/lawyer/LawyerTierBadge";
+import SubscriptionExpiryBanner from "@/components/lawyer/SubscriptionExpiryBanner";
+import LawyerBillingHistory from "@/components/billing/LawyerBillingHistory";
 import {
   Zap,
   Crown,
@@ -16,6 +19,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
+import SubscriptionClientActions from "@/components/billing/SubscriptionClientActions";
 
 export default async function LawyerSubscriptionPage() {
   const supabase = await createClient();
@@ -38,10 +42,11 @@ export default async function LawyerSubscriptionPage() {
     redirect("/onboarding/lawyer");
   }
 
-  // 2. Obtener suscripción y catálogo de planes
-  const [subRes, plansRes] = await Promise.all([
+  // 2. Obtener suscripción, catálogo de planes e historial de facturas
+  const [subRes, plansRes, invoicesRes] = await Promise.all([
     getMyLawyerSubscriptionAction(),
     getSubscriptionPlansAction(),
+    getMyInvoicesAction(),
   ]);
 
   const subscription = subRes.subscription;
@@ -71,6 +76,14 @@ export default async function LawyerSubscriptionPage() {
 
   return (
     <div className="w-full max-w-[1500px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-10">
+      {/* Alerta Preventiva de Vencimiento / Gracia */}
+      <SubscriptionExpiryBanner
+        status={subscription?.status || "active"}
+        daysRemaining={daysRemaining}
+        planName={currentPlan.name}
+        tier={currentPlan.tier}
+      />
+
       {/* Encabezado */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
@@ -300,19 +313,12 @@ export default async function LawyerSubscriptionPage() {
             </div>
 
             <div className="pt-6">
-              {currentPlan.tier === "pro" ? (
-                <span className="w-full inline-block text-center rounded-xl bg-blue-100 py-2.5 text-xs font-bold text-blue-700">
-                  Plan Activo
-                </span>
-              ) : (
-                <a
-                  href="#metodos-pago"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 text-xs transition-all shadow-sm"
-                >
-                  <span>Suscribirme a Pro</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-              )}
+              <SubscriptionClientActions
+                planId="pro_monthly"
+                planName="ALYA Pro"
+                tier="pro"
+                isCurrentPlan={currentPlan.tier === "pro"}
+              />
             </div>
           </div>
 
@@ -354,19 +360,12 @@ export default async function LawyerSubscriptionPage() {
             </div>
 
             <div className="pt-6">
-              {currentPlan.tier === "elite" ? (
-                <span className="w-full inline-block text-center rounded-xl bg-amber-100 py-2.5 text-xs font-bold text-amber-800">
-                  Plan Activo
-                </span>
-              ) : (
-                <a
-                  href="#metodos-pago"
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-slate-50 hover:bg-slate-100 text-[#0F172A] font-bold py-2.5 text-xs transition-all shadow-xs"
-                >
-                  <span>Elegir Plan Élite</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-              )}
+              <SubscriptionClientActions
+                planId="elite_monthly"
+                planName="Élite Estudio"
+                tier="elite"
+                isCurrentPlan={currentPlan.tier === "elite"}
+              />
             </div>
           </div>
         </div>
@@ -385,20 +384,22 @@ export default async function LawyerSubscriptionPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Opción 1: Tarjeta */}
-          <div className="rounded-2xl border border-slate-200 p-6 space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="rounded-xl bg-blue-50 text-blue-700 p-2.5">
-                <CreditCard className="w-5 h-5" />
-              </span>
-              <div>
-                <h4 className="text-sm font-bold text-[#0F172A]">Tarjeta de Crédito o Débito</h4>
-                <p className="text-xs text-slate-500">Visa, Mastercard, Diners y Amex (Mercado Pago)</p>
+          <div className="rounded-2xl border border-slate-200 p-6 space-y-3 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-blue-50 text-blue-700 p-2.5">
+                  <CreditCard className="w-5 h-5" />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-[#0F172A]">Tarjeta de Crédito o Débito</h4>
+                  <p className="text-xs text-slate-500">Visa, Mastercard, Diners y Amex (Mercado Pago)</p>
+                </div>
               </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Cobro recurrente mensual o anual automatizado. Facturación electrónica inmediata a tu correo electrónico.
+              </p>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Cobro recurrente mensual o anual automatizado. Facturación electrónica inmediata a tu correo electrónico.
-            </p>
-            <div className="pt-2">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600">
                 🔒 Procesamiento Seguro PCI-DSS Nivel 1
               </span>
@@ -406,27 +407,35 @@ export default async function LawyerSubscriptionPage() {
           </div>
 
           {/* Opción 2: Yape / BCP */}
-          <div className="rounded-2xl border border-slate-200 p-6 space-y-3">
-            <div className="flex items-center gap-3">
-              <span className="rounded-xl bg-purple-50 text-purple-700 p-2.5">
-                <QrCode className="w-5 h-5" />
-              </span>
-              <div>
-                <h4 className="text-sm font-bold text-[#0F172A]">Yape, Plin o Transferencia BCP</h4>
-                <p className="text-xs text-slate-500">Ideal para planes semestrales y anuales con descuento</p>
+          <div className="rounded-2xl border border-purple-200 bg-purple-50/20 p-6 space-y-3 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="rounded-xl bg-purple-100 text-purple-700 p-2.5">
+                  <QrCode className="w-5 h-5" />
+                </span>
+                <div>
+                  <h4 className="text-sm font-bold text-[#0F172A]">Yape, Plin o Transferencia BCP</h4>
+                  <p className="text-xs text-slate-500">Ideal para planes semestrales y anuales con descuento</p>
+                </div>
               </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Transfiere directamente a la cuenta corriente institucional de ALYA Perú y adjunta tu comprobante para activación prioritaria en menos de 2 horas.
+              </p>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Transfiere directamente a la cuenta corriente institucional de ALYA Perú y adjunta tu comprobante para activación prioritaria en menos de 2 horas.
-            </p>
-            <div className="pt-2">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700">
-                📲 Soporte y Activación Rápida por WhatsApp
-              </span>
+            <div className="pt-3 border-t border-purple-100">
+              <SubscriptionClientActions
+                planId="pro_annual"
+                planName="ALYA Pro Anual (S/ 790)"
+                tier="pro"
+                isCurrentPlan={false}
+              />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Historial de Facturas y Comprobantes SUNAT */}
+      <LawyerBillingHistory invoices={invoicesRes.invoices || []} />
     </div>
   );
 }
