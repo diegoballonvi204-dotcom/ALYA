@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
   LayoutDashboard,
   UserCheck,
@@ -41,18 +42,18 @@ export default async function AdminLayout({
       <header className="sticky top-0 z-40 border-b border-slate-200/90 bg-white/95 backdrop-blur-md shadow-sm">
         <div className="mx-auto flex w-full max-w-[1700px] items-center justify-between px-6 sm:px-10 lg:px-12 py-3.5">
           <div className="flex items-center gap-8">
-            <Link href="/admin" className="flex items-center gap-3 group">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0F172A] text-white shadow-sm border border-slate-800 group-hover:scale-105 transition-transform">
-                <Scale className="h-4.5 w-4.5 text-blue-400 stroke-[2.2]" />
-              </div>
-              <div>
-                <span className="font-serif font-bold text-lg tracking-tight text-[#0F172A] block leading-tight">
-                  ALYA<span className="text-[#2563EB] italic font-normal text-xs ml-1 font-sans">LegalTech</span>
-                </span>
-                <span className="text-[10px] font-mono text-slate-500 uppercase tracking-widest font-semibold block leading-none">
-                  Backoffice Administrativo
-                </span>
-              </div>
+            <Link href="/admin" className="flex items-center gap-3 group shrink-0">
+              <Image
+                src="/logoAlya.png"
+                alt="ALYA LegalTech"
+                width={130}
+                height={38}
+                priority
+                className="h-9 sm:h-10 w-auto object-contain group-hover:scale-105 transition-transform"
+              />
+              <span className="hidden sm:inline-block border-l border-slate-200 pl-3 text-[10px] font-mono text-slate-500 uppercase tracking-widest font-semibold">
+                Backoffice Administrativo
+              </span>
             </Link>
 
             {/* Navigation Links */}

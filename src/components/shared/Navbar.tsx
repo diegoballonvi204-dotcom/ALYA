@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { Scale, LogOut, ShieldCheck, Briefcase, LogIn, UserPlus, FilePlus2, MessageSquare, Calendar, FolderKanban } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
@@ -38,20 +39,19 @@ export async function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md transition-all shadow-xs">
       <div className="mx-auto flex h-18 w-full max-w-[1700px] items-center justify-between px-6 sm:px-10 lg:px-12">
         {/* Brand Logo */}
-        <Link href={homeHref} className="flex items-center gap-3 transition-opacity hover:opacity-95 group shrink-0">
-          <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-white to-slate-100 p-0.5 shadow-sm border border-slate-200 group-hover:border-blue-500/50 transition-colors">
-            <div className="flex h-full w-full items-center justify-center rounded-[10px] bg-[#0F172A] shadow-inner">
-              <Scale className="h-4.5 w-4.5 text-blue-400 stroke-[2.2] transition-transform group-hover:scale-105" />
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-bold tracking-tight text-[#0F172A] leading-tight font-serif">
-              ALYA<span className="text-[#2563EB] font-normal italic text-xs ml-1 font-sans">LegalTech</span>
-            </span>
-            <span className="text-[9px] font-bold tracking-widest text-slate-500 uppercase leading-none font-mono">
-              Perú
-            </span>
-          </div>
+        <Link
+          href={homeHref}
+          className="flex items-center gap-3 transition-transform hover:scale-[1.02] active:scale-95 group shrink-0 py-1"
+          aria-label="ALYA Inicio"
+        >
+          <Image
+            src="/logoAlya.png"
+            alt="ALYA LegalTech"
+            width={160}
+            height={48}
+            priority
+            className="h-11 sm:h-12 w-auto object-contain drop-shadow-2xs"
+          />
         </Link>
 
         {/* Center Desktop Navigation - DYNAMIC ACCORDING TO USER ROLE */}

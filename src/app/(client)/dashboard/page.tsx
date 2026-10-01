@@ -22,7 +22,7 @@ export default async function ClientDashboardPage() {
   // Obtener casos del cliente
   const { data: cases } = await supabase
     .from("cases")
-    .select("*, specialties(name)")
+    .select("*, specialties:specialties!cases_specialty_id_fkey(name)")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 

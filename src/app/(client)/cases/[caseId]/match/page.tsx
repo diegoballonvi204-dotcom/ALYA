@@ -20,11 +20,27 @@ export default async function CaseMatchingPage({
   }
 
   // 1. Obtener datos del caso y validar propiedad
-  const { data: caseData } = await supabase
+  const { data: caseData, error: caseErr } = await supabase
     .from("cases")
-    .select("id, title, description, city, modality, urgency, user_id, specialties(name)")
+    .select(`
+      id,
+      title,
+      description,
+      city,
+      modality,
+      urgency,
+      user_id,
+      specialty_id,
+      specialties:specialties!cases_specialty_id_fkey (
+        name
+      )
+    `)
     .eq("id", caseId)
-    .single();
+    .maybeSingle();
+
+  if (caseErr) {
+    console.error("Error al obtener caso en match page:", caseErr);
+  }
 
   if (!caseData) {
     notFound();

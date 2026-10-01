@@ -361,7 +361,7 @@ export async function getLawyerCaseAIBriefAction(
     // 3. Obtener datos del caso
     const { data: c, error: caseErr } = await supabase
       .from("cases")
-      .select("*, specialties(name)")
+      .select("*, specialties:specialties!cases_specialty_id_fkey(name)")
       .eq("id", caseId)
       .single();
 
