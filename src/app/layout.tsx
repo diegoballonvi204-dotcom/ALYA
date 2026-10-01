@@ -24,6 +24,15 @@ export const metadata: Metadata = {
   title: "ALYA Perú — Encuentra al Abogado Ideal para tu Caso",
   description:
     "ALYA es la plataforma LegalTech de alta gama. Matching jurídico de precisión mediante algoritmos ponderados y verificación oficial de colegiatura.",
+  icons: {
+    icon: [
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon.ico", sizes: "32x32" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
 };
 
 export default function RootLayout({

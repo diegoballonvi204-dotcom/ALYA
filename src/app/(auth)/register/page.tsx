@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Scale, AlertCircle } from "lucide-react";
+import Image from "next/image";
+import { AlertCircle } from "lucide-react";
 import { RegisterForm } from "@/components/forms/RegisterForm";
 
 export default async function RegisterPage({
@@ -14,9 +15,16 @@ export default async function RegisterPage({
     <div className="flex min-h-[calc(100vh-4.5rem)] items-center justify-center p-4 sm:p-8 bg-noise">
       <div className="w-full max-w-xl rounded-3xl border border-slate-200/90 bg-white/95 p-7 sm:p-10 shadow-2xl shadow-slate-900/10 backdrop-blur-2xl">
         <div className="text-center mb-6">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0F172A] shadow-lg shadow-slate-900/20 mb-4 border border-slate-800">
-            <Scale className="h-7 w-7 text-white stroke-[2]" />
-          </div>
+          <Link href="/" className="inline-block mb-3 transition-transform hover:scale-105 active:scale-95">
+            <Image
+              src="/logoAlya.png"
+              alt="ALYA LegalTech"
+              width={200}
+              height={60}
+              priority
+              className="h-16 sm:h-18 w-auto mx-auto object-contain drop-shadow-xs"
+            />
+          </Link>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A] font-serif">
             Crear Cuenta en ALYA
           </h1>

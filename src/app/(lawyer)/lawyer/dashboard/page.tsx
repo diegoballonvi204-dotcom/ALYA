@@ -71,7 +71,7 @@ export default async function LawyerDashboardPage({
         urgency,
         is_confidential,
         created_at,
-        specialties (name)
+        specialties:specialties!cases_specialty_id_fkey (name)
       )
     `)
     .eq("lawyer_id", lawyer.id)
@@ -101,7 +101,7 @@ export default async function LawyerDashboardPage({
     const specialtyIds = lawyerSpecialties?.map((ls) => ls.specialty_id) || [];
     const { data: openCases } = await supabase
       .from("cases")
-      .select("*, specialties(name)")
+      .select("*, specialties:specialties!cases_specialty_id_fkey(name)")
       .in("specialty_id", specialtyIds.length > 0 ? specialtyIds : [0])
       .eq("status", "published")
       .order("created_at", { ascending: false })
