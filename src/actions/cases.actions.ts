@@ -293,3 +293,118 @@ export async function toggleFavoriteAction(targetId: string, targetType: string 
     return { success: true, isFavorite: true };
   }
 }
+
+export async function directMatchWithLawyerAction(params: {
+  lawyerId: string;
+  caseId?: string;
+  title: string;
+  description: string;
+  specialtyId?: number;
+  city?: string;
+  modality?: "virtual" | "in_person" | "hybrid";
+  urgency?: "low" | "medium" | "high" | "immediate";
+  isConfidential?: boolean;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Debes iniciar sesión para conectar con un abogado." };
+  }
+
+  let targetCaseId = params.caseId;
+
+  // Si no se proporcionó un caso previo, creamos el caso con los detalles indicados
+  if (!targetCaseId) {
+    const defaultTitle = params.title?.trim() || "Consulta Jurídica";
+    const defaultDesc =
+      params.description?.trim() ||
+      "Consulta legal directa para análisis de caso con abogado colegiado.";
+
+    // Buscar una especialidad válida si no vino ID
+    let resolvedSpecialtyId = params.specialtyId;
+    if (!resolvedSpecialtyId) {
+      const { data: firstSpec } = await supabase
+        .from("specialties")
+        .select("id")
+        .limit(1)
+        .maybeSingle();
+      resolvedSpecialtyId = firstSpec?.id || 1;
+    }
+
+    const { data: newCase, error: caseErr } = await supabase
+      .from("cases")
+      .insert({
+        user_id: user.id,
+        title: defaultTitle,
+        description: defaultDesc,
+        specialty_id: resolvedSpecialtyId,
+        city: params.city || "Lima",
+        modality: params.modality || "virtual",
+        urgency: params.urgency || "medium",
+        is_confidential: params.isConfidential ?? true,
+        status: "published",
+      })
+      .select("id")
+      .single();
+
+    if (caseErr || !newCase) {
+      return { error: `No se pudo registrar la consulta: ${caseErr?.message || "Error desconocido"}` };
+    }
+
+    targetCaseId = newCase.id;
+
+    // Calcular matches complementarios en segundo plano
+    void supabase.rpc("calculate_case_matches", { p_case_id: newCase.id }).then(undefined, () => {});
+  }
+
+  // Registrar o actualizar el interés en public.matches
+  const { data: existingMatch } = await supabase
+    .from("matches")
+    .select("id, status, lawyer_interest")
+    .eq("case_id", targetCaseId)
+    .eq("lawyer_id", params.lawyerId)
+    .maybeSingle();
+
+  let isMatched = false;
+
+  if (existingMatch) {
+    isMatched = Boolean(existingMatch.lawyer_interest);
+    await supabase
+      .from("matches")
+      .update({
+        user_interest: true,
+        user_interacted_at: new Date().toISOString(),
+        status: isMatched ? "matched" : "user_interested",
+      })
+      .eq("id", existingMatch.id);
+  } else {
+    // Si no existía el registro de match, lo insertamos con afinidad directa
+    await supabase.from("matches").insert({
+      case_id: targetCaseId,
+      lawyer_id: params.lawyerId,
+      score: 96,
+      breakdown: {
+        specialty_match: true,
+        modality_compatible: true,
+        direct_inquiry: true,
+      },
+      status: "user_interested",
+      user_interest: true,
+      lawyer_interest: false,
+      user_interacted_at: new Date().toISOString(),
+    });
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/cases/${targetCaseId}/match`);
+
+  return {
+    success: true,
+    caseId: targetCaseId,
+    isMatched,
+    message: "Interés y detalles de consulta registrados exitosamente",
+  };
+}

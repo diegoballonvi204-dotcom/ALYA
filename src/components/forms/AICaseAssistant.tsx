@@ -4,9 +4,9 @@ import { useState } from "react";
 import {
   Sparkles,
   Loader2,
-  Clock,
   Check,
   Tag,
+  HelpCircle,
 } from "lucide-react";
 import {
   classifyCaseWithAIAction,
@@ -37,7 +37,7 @@ export function AICaseAssistant({
 
   const handleAnalyze = async () => {
     if (!description || description.trim().length < 15) {
-      setErrorMsg("Escribe al menos 15 caracteres en la descripción para que la IA pueda clasificar tu caso.");
+      setErrorMsg("Escribe al menos 15 caracteres en la descripción para que el asistente pueda orientarte.");
       return;
     }
 
@@ -45,18 +45,22 @@ export function AICaseAssistant({
     setErrorMsg(null);
     setApplied(false);
 
-    const res = await classifyCaseWithAIAction({
-      title: title || "Consulta Legal",
-      description,
-      city,
-    });
+    try {
+      const res = await classifyCaseWithAIAction({
+        title: title || "Consulta Legal",
+        description,
+        city,
+      });
 
-    setAnalyzing(false);
-
-    if (res.error || !res.result) {
-      setErrorMsg(res.error || "No se pudo clasificar el caso.");
-    } else {
-      setResult(res.result);
+      if (res.error || !res.result) {
+        setErrorMsg(res.error || "No se pudo clasificar el caso en este momento.");
+      } else {
+        setResult(res.result);
+      }
+    } catch (err: any) {
+      setErrorMsg("Error de conexión al orientar el caso.");
+    } finally {
+      setAnalyzing(false);
     }
   };
 
@@ -75,40 +79,40 @@ export function AICaseAssistant({
     switch (urgency) {
       case "urgent":
         return {
-          label: "Urgencia Inmediata (24-48h)",
-          color: "bg-slate-200 text-slate-800 border-slate-300",
+          label: "Urgencia Inmediata",
+          color: "bg-[#101828] text-white border-slate-700",
         };
       case "high":
         return {
-          label: "Urgencia Alta (Plazos Activos)",
-          color: "bg-blue-50 text-blue-700 border-blue-200",
+          label: "Urgencia Apremiante",
+          color: "bg-[#F0F4FE] text-[#3157D5] border-[#D1DEFC]",
         };
       case "low":
         return {
-          label: "Urgencia Baja (Preventiva)",
-          color: "bg-slate-100 text-slate-700 border-slate-200",
+          label: "Preventiva / Consulta",
+          color: "bg-[#E8F5E9] text-[#198754] border-[#198754]/25",
         };
       default:
         return {
-          label: "Urgencia Normal",
-          color: "bg-emerald-50 text-emerald-700 border-emerald-200",
+          label: "Estándar",
+          color: "bg-slate-100 text-[#202938] border-slate-200",
         };
     }
   };
 
   return (
-    <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50/60 via-white to-slate-50 p-5 shadow-xs space-y-4">
+    <div className="rounded-2xl border border-[#D1DEFC] bg-[#F0F4FE]/70 p-5 shadow-xs space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#0F172A] flex items-center justify-center text-blue-400 shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#101828] flex items-center justify-center text-blue-400 shadow-xs shrink-0">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="text-xs font-bold uppercase tracking-wider text-blue-700 font-mono">
-              Asistente Jurídico Inteligente
+            <h4 className="text-xs font-bold uppercase tracking-wider text-[#3157D5] font-mono">
+              Orientación Inteligente de Materia Legal
             </h4>
-            <p className="text-xs text-slate-600">
-              ¿No sabes qué materia legal corresponde? Deja que nuestra IA analice tu relato fáctico.
+            <p className="text-xs text-[#667085]">
+              ¿Dudas sobre a qué área legal pertenece tu caso? El asistente puede sugerir la rama jurídica adecuada.
             </p>
           </div>
         </div>
@@ -117,72 +121,70 @@ export function AICaseAssistant({
           type="button"
           disabled={analyzing}
           onClick={handleAnalyze}
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs shadow-md shadow-slate-900/10 disabled:opacity-50 transition-all shrink-0 cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#101828] hover:bg-[#1E293B] text-white font-bold text-xs shadow-md shadow-slate-900/10 disabled:opacity-50 transition-all shrink-0 cursor-pointer"
         >
           {analyzing ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Analizando hechos...</span>
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-400" />
+              <span>Analizando situación...</span>
             </>
           ) : (
             <>
               <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              <span>Analizar con IA</span>
+              <span>Orientar mi consulta</span>
             </>
           )}
         </button>
       </div>
 
       {errorMsg && (
-        <p className="text-xs text-slate-700 bg-slate-100 border border-slate-300 p-3 rounded-xl font-medium">
+        <p className="text-xs text-[#202938] bg-white border border-[#E6EAF0] p-3 rounded-xl font-medium">
           {errorMsg}
         </p>
       )}
 
-      {/* Tarjeta de Sugerencia Resultante */}
+      {/* Suggested Classification Card */}
       {result && (
-        <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs space-y-3">
+        <div className="p-4.5 rounded-2xl bg-white border border-[#E6EAF0] shadow-xs space-y-3">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[#0F172A] font-serif">
-                Sugerencia IA: {result.specialtyName}
+              <span className="text-xs font-bold text-[#101828] font-serif">
+                Materia sugerida: {result.specialtyName}
               </span>
               {result.subspecialtyName && (
-                <span className="text-xs text-blue-600 font-semibold font-mono">
+                <span className="text-xs text-[#3157D5] font-semibold font-mono">
                   › {result.subspecialtyName}
                 </span>
               )}
             </div>
 
-            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
-              {Math.round(result.confidence * 100)}% de certeza
+            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#E8F5E9] text-[#198754] border border-[#198754]/20 font-mono">
+              {Math.round(result.confidence * 100)}% de coincidencia temática
             </span>
           </div>
 
-          {/* Urgencia y Justificación */}
           <div className="flex items-start gap-2 text-xs">
             <span
-              className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase shrink-0 font-mono ${
+              className={`px-2 py-0.5 rounded-md border text-[10px] font-bold uppercase shrink-0 font-mono ${
                 getUrgencyBadge(result.urgency).color
               }`}
             >
               {getUrgencyBadge(result.urgency).label}
             </span>
-            <span className="text-xs text-slate-600 leading-tight">
+            <span className="text-xs text-[#667085] leading-relaxed">
               {result.urgencyReason}
             </span>
           </div>
 
-          {/* Palabras Clave Legales */}
           {result.legalEntities.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap pt-1">
-              <span className="text-[10px] text-slate-500 font-semibold flex items-center gap-1">
-                <Tag className="w-2.5 h-2.5 text-blue-600" /> Conceptos:
+              <span className="text-[10px] text-[#667085] font-semibold flex items-center gap-1">
+                <Tag className="w-3 h-3 text-[#3157D5]" /> Temas detectados:
               </span>
               {result.legalEntities.map((kw, i) => (
                 <span
                   key={i}
-                  className="px-2 py-0.5 rounded-md bg-slate-100 text-[10px] text-slate-700 border border-slate-200 font-mono"
+                  className="px-2 py-0.5 rounded-md bg-[#F7F8FC] text-[10px] text-[#202938] border border-[#E6EAF0] font-mono"
                 >
                   {kw}
                 </span>
@@ -190,27 +192,27 @@ export function AICaseAssistant({
             </div>
           )}
 
-          {/* Botón Aplicar Sugerencia */}
-          <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+          {/* Action to Apply */}
+          <div className="pt-3 border-t border-[#E6EAF0] flex items-center justify-end">
             <button
               type="button"
               onClick={handleApply}
               disabled={applied || !result.specialtyId}
-              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
                 applied
-                  ? "bg-emerald-600 text-white shadow-xs"
-                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-xs"
+                  ? "bg-[#198754] text-white shadow-xs"
+                  : "bg-[#3157D5] hover:bg-[#2547BD] text-white shadow-xs"
               }`}
             >
               {applied ? (
                 <>
                   <Check className="w-3.5 h-3.5" />
-                  <span>¡Campos Actualizados!</span>
+                  <span>¡Datos aplicados al formulario!</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Aplicar Clasificación al Formulario</span>
+                  <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+                  <span>Aplicar sugerencia</span>
                 </>
               )}
             </button>

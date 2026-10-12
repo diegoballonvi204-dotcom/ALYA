@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { Scale, LogOut, ShieldCheck, Briefcase, LogIn, UserPlus, FilePlus2, MessageSquare, Calendar, FolderKanban } from "lucide-react";
+import { LogOut, ShieldCheck, Briefcase, LogIn, UserPlus, FilePlus2, MessageSquare, Calendar, FolderKanban } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { MobileNav } from "./MobileNav";
@@ -55,75 +55,75 @@ export async function Navbar() {
         </Link>
 
         {/* Center Desktop Navigation - DYNAMIC ACCORDING TO USER ROLE */}
-        <nav className="hidden md:flex items-center gap-7 text-[13px] font-semibold text-slate-600">
+        <nav className="hidden md:flex items-center gap-7 text-[13px] font-semibold text-[#667085]">
           {/* 1. Unauthenticated (Landing mode) */}
           {!user ? (
             <>
-              <Link href="/#como-funciona" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/#como-funciona" className="hover:text-[#3157D5] transition-colors">
                 ¿Cómo funciona?
               </Link>
-              <Link href="/#especialidades" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/#especialidades" className="hover:text-[#3157D5] transition-colors">
                 Especialidades
               </Link>
-              <Link href="/#matching" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/#matching" className="hover:text-[#3157D5] transition-colors">
                 Matching Inteligente
               </Link>
-              <Link href="/#para-abogados" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/#para-abogados" className="hover:text-[#3157D5] transition-colors">
                 Para Abogados
               </Link>
-              <Link href="/#seguridad" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/#seguridad" className="hover:text-[#3157D5] transition-colors">
                 Seguridad & Privacidad
               </Link>
             </>
           ) : normalizedRole === "admin" || normalizedRole === "verifier" ? (
             /* 2. Admin / Verifier options */
             <>
-              <Link href="/admin" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/admin" className="hover:text-[#3157D5] transition-colors">
                 Panel General
               </Link>
-              <Link href="/admin/verifications" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/admin/verificaciones" className="hover:text-[#3157D5] transition-colors">
                 Verificaciones
               </Link>
-              <Link href="/admin/audit" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/admin/audit" className="hover:text-[#3157D5] transition-colors">
                 Auditoría Forense
               </Link>
-              <Link href="/admin/arco" className="hover:text-[#2563EB] transition-colors">
+              <Link href="/admin/arco" className="hover:text-[#3157D5] transition-colors">
                 Privacidad ARCO
               </Link>
             </>
           ) : normalizedRole === "lawyer" ? (
             /* 3. Lawyer Authenticated */
             <>
-              <Link href="/lawyer/dashboard" className="flex items-center gap-1.5 hover:text-[#2563EB] transition-colors">
-                <Briefcase className="w-4 h-4 text-[#2563EB]" />
+              <Link href="/lawyer/dashboard" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <Briefcase className="w-4 h-4 text-[#3157D5]" />
                 <span>Casos Compatibles</span>
               </Link>
-              <Link href="/lawyer/schedule" className="flex items-center gap-1.5 hover:text-[#2563EB] transition-colors">
-                <Calendar className="w-4 h-4 text-[#2563EB]" />
+              <Link href="/lawyer/schedule" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <Calendar className="w-4 h-4 text-[#3157D5]" />
                 <span>Mi Agenda</span>
               </Link>
-              <Link href="/chat" className="flex items-center gap-1.5 hover:text-[#2563EB] transition-colors">
-                <MessageSquare className="w-4 h-4 text-[#2563EB]" />
+              <Link href="/chat" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <MessageSquare className="w-4 h-4 text-[#3157D5]" />
                 <span>Mensajes</span>
               </Link>
-              <Link href="/lawyer/verification" className="flex items-center gap-1.5 hover:text-[#2563EB] transition-colors">
-                <ShieldCheck className="w-4 h-4 text-[#2563EB]" />
+              <Link href="/lawyer/verification" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <ShieldCheck className="w-4 h-4 text-[#3157D5]" />
                 <span>Mi Colegiatura</span>
               </Link>
             </>
           ) : (
             /* 4. Client Authenticated (Default for any authenticated user) */
             <>
-              <Link href="/dashboard" className="flex items-center gap-1.5 hover:text-[#2563EB] transition-colors">
-                <FolderKanban className="w-4 h-4 text-[#2563EB]" />
+              <Link href="/dashboard" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <FolderKanban className="w-4 h-4 text-[#3157D5]" />
                 <span>Mis Casos</span>
               </Link>
-              <Link href="/cases/new" className="flex items-center gap-1.5 hover:text-[#2563EB] transition-colors">
-                <FilePlus2 className="w-4 h-4 text-[#2563EB]" />
+              <Link href="/cases/new" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <FilePlus2 className="w-4 h-4 text-[#3157D5]" />
                 <span>Publicar Consulta</span>
               </Link>
-              <Link href="/chat" className="flex items-center gap-1.5 hover:text-[#2563EB] transition-colors">
-                <MessageSquare className="w-4 h-4 text-[#2563EB]" />
+              <Link href="/chat" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <MessageSquare className="w-4 h-4 text-[#3157D5]" />
                 <span>Mensajes</span>
               </Link>
             </>
@@ -143,21 +143,21 @@ export async function Navbar() {
                     ? "/admin"
                     : "/profile"
                 }
-                className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 px-3 py-1.5 text-xs text-[#0F172A] shadow-xs transition-colors cursor-pointer group"
+                className="flex items-center gap-2 rounded-xl bg-[#F7F8FC] border border-[#E6EAF0] hover:border-[#D1DEFC] hover:bg-[#EEF2FF] px-3 py-1.5 text-xs text-[#101828] shadow-xs transition-colors cursor-pointer group"
                 title="Ver y editar mi perfil"
               >
-                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#0F172A] text-white text-[10px] font-bold group-hover:bg-blue-600 transition-colors">
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[#101828] text-white text-[10px] font-bold group-hover:bg-[#3157D5] transition-colors">
                   {fullName ? fullName.charAt(0) : "U"}
                 </div>
                 <span className="max-w-[130px] truncate font-bold">{fullName || user.email}</span>
-                <span className="rounded bg-blue-50 px-2 py-0.5 text-[9px] font-bold text-blue-700 uppercase font-mono border border-blue-200">
+                <span className="rounded bg-[#EEF2FF] px-2 py-0.5 text-[9px] font-bold text-[#3157D5] uppercase font-mono border border-[#D1DEFC]">
                   {role}
                 </span>
               </Link>
               <form action={logoutAction}>
                 <button
                   type="submit"
-                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 shadow-xs transition-all"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#E6EAF0] bg-white text-[#667085] hover:border-slate-300 hover:bg-slate-100 hover:text-[#101828] shadow-xs transition-all cursor-pointer"
                   title="Cerrar sesión"
                 >
                   <LogOut className="h-4 w-4" />
@@ -168,16 +168,16 @@ export async function Navbar() {
             <div className="flex items-center gap-2.5">
               <Link
                 href="/login"
-                className="group inline-flex items-center gap-2 rounded-xl border border-slate-300/90 bg-white px-4 py-2 text-[13px] font-semibold text-[#0F172A] shadow-sm hover:border-[#2563EB] hover:bg-slate-50 hover:text-[#2563EB] hover:-translate-y-0.5 transition-all"
+                className="group inline-flex items-center gap-2 rounded-xl border border-[#E6EAF0] bg-white px-4 py-2 text-[13px] font-semibold text-[#101828] shadow-xs hover:border-[#3157D5] hover:bg-[#F7F8FC] hover:text-[#3157D5] transition-all"
               >
-                <LogIn className="h-4 w-4 text-[#2563EB] transition-transform group-hover:scale-110" />
+                <LogIn className="h-4 w-4 text-[#3157D5] transition-transform group-hover:scale-105" />
                 <span>Iniciar sesión</span>
               </Link>
               <Link
                 href="/register"
-                className="group inline-flex items-center gap-2 rounded-xl bg-[#0F172A] px-4.5 py-2 text-[13px] font-bold text-white shadow-md shadow-[#0F172A]/15 hover:bg-[#1E293B] hover:-translate-y-0.5 hover:shadow-lg transition-all border border-slate-800"
+                className="group inline-flex items-center gap-2 rounded-xl bg-[#101828] px-4.5 py-2 text-[13px] font-bold text-white shadow-md shadow-slate-900/10 hover:bg-[#1E293B] transition-all"
               >
-                <UserPlus className="h-4 w-4 text-blue-400 transition-transform group-hover:scale-110" />
+                <UserPlus className="h-4 w-4 text-blue-400 transition-transform group-hover:scale-105" />
                 <span>Crear cuenta</span>
               </Link>
             </div>
