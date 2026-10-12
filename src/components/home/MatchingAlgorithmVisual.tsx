@@ -158,7 +158,7 @@ export function MatchingAlgorithmVisual() {
             </div>
 
             {/* Resulting Match Score Card */}
-            <div className="p-5 rounded-2xl bg-[#0F172A] text-white shadow-xl border border-slate-800">
+            <div className="gsap-match-pulse p-5 rounded-2xl bg-[#0F172A] text-white shadow-xl border border-slate-800">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[10px] font-mono font-semibold text-blue-400 uppercase tracking-wider">

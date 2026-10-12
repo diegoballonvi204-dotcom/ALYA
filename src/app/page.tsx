@@ -28,6 +28,7 @@ import {
 import { HeroCrystalVisual } from "@/components/home/HeroCrystalVisual";
 import { MatchingAlgorithmVisual } from "@/components/home/MatchingAlgorithmVisual";
 import { GsapScrollController } from "@/components/home/GsapScrollController";
+import { MagneticButton } from "@/components/home/MagneticButton";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -112,7 +113,7 @@ export default async function HomePage() {
   ];
 
   return (
-    <div className="relative overflow-hidden bg-[#F8FAFC] text-[#0F172A] bg-noise">
+    <div className="relative overflow-hidden bg-[#F8FAFC] text-[#101828] bg-noise">
       {/* GSAP Scroll Controller Plugin Engine */}
       <GsapScrollController />
 
@@ -121,50 +122,60 @@ export default async function HomePage() {
       <div className="gsap-parallax-orb absolute top-80 right-0 w-[550px] h-[550px] bg-gradient-to-br from-slate-900/5 to-transparent pointer-events-none -z-10 blur-3xl" />
 
       {/* ========================================================================= */}
-      {/* 1. HERO SECTION CON GSAP 3D PARALLAX                                      */}
+      {/* 1. HERO SECTION: ESCENA JURÍDICA INTERACTIVA ("Legal Motion Field")       */}
       {/* ========================================================================= */}
-      <section className="relative mx-auto max-w-7xl px-4 pt-12 pb-16 sm:px-6 lg:px-8 sm:pt-20 sm:pb-24">
+      <section className="relative mx-auto max-w-7xl px-4 pt-10 pb-16 sm:px-6 lg:px-8 sm:pt-16 sm:pb-24">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
           {/* Left Column: Value Proposition & CTAs */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
+            {/* Institution Badge */}
+            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-[#101828] border border-slate-200/90 shadow-xs font-mono">
+              <span className="flex h-2 w-2 rounded-full bg-[#3157D5]" />
+              <span>Red LegalTech de Alta Precisión • Perú</span>
+            </div>
+
             {/* Main Headline - Editorial Typography with Serif Accents */}
-            <h1 className="text-3xl sm:text-5xl lg:text-[60px] font-extrabold tracking-tight text-[#0F172A] leading-[1.12]">
-              El{" "}
-              <span className="font-serif italic font-normal text-gradient-sapphire text-[1.06em]">
-                abogado adecuado
-              </span>{" "}
-              para tu problema,{" "}
-              <span className="text-gradient-obsidian">
-                sin rodeos ni incertidumbre.
+            <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-extrabold tracking-tight text-[#101828] leading-[1.14]">
+              El respaldo jurídico que necesitas.{" "}
+              <span className="font-serif italic font-normal text-gradient-sapphire text-[1.05em] block sm:inline">
+                La conexión que estabas buscando.
               </span>
             </h1>
 
             {/* Concise Editorial Subtitle */}
             <p className="text-base sm:text-lg text-slate-600 max-w-xl mx-auto lg:mx-0 leading-relaxed font-sans font-normal">
-              Cuéntanos qué ocurrió en tus propias palabras. Nuestro motor de correspondencia legal analiza los hechos y te conecta con especialistas colegiados con experiencia auditada.
+              Encuentra abogados compatibles con tu caso, compara sus especialidades y conecta con el profesional adecuado para ti.
             </p>
 
-            {/* High-End CTAs */}
+            {/* High-End CTAs with Magnetic Primary Interaction */}
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-              <Link
-                href="/cases/new"
-                className="w-full sm:w-auto group inline-flex items-center justify-center gap-3 rounded-xl bg-[#0F172A] px-8 py-4 text-sm sm:text-base font-bold text-white shadow-xl shadow-slate-900/20 hover:bg-[#1E293B] hover:-translate-y-0.5 transition-all border border-slate-800"
-              >
-                <span>Describir mi problema</span>
-                <ArrowRight className="w-4 h-4 text-blue-400 transition-transform group-hover:translate-x-1" />
-              </Link>
+              <MagneticButton>
+                <Link
+                  href="/cases/new"
+                  className="w-full sm:w-auto group inline-flex items-center justify-center gap-3 rounded-xl bg-[#101828] px-8 py-4 text-sm sm:text-base font-bold text-white shadow-xl shadow-slate-900/20 hover:bg-[#1E293B] hover:-translate-y-0.5 transition-all border border-slate-800"
+                >
+                  <span>Encontrar mi abogado</span>
+                  <ArrowRight className="w-4 h-4 text-[#4777F5] transition-transform group-hover:translate-x-1" />
+                </Link>
+              </MagneticButton>
 
               <Link
-                href="/register?role=lawyer"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl luxury-glass px-7 py-4 text-sm sm:text-base font-semibold text-[#0F172A] hover:border-[#2563EB]/40 hover:bg-white transition-all shadow-sm"
+                href="#como-funciona"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl luxury-glass px-7 py-4 text-sm sm:text-base font-semibold text-[#101828] hover:border-[#3157D5]/40 hover:bg-white transition-all shadow-sm"
               >
-                <ShieldCheck className="w-4.5 h-4.5 text-[#2563EB]" />
-                <span>Soy Abogado Colegiado</span>
+                <HelpCircle className="w-4.5 h-4.5 text-[#3157D5]" />
+                <span>Descubrir cómo funciona</span>
               </Link>
+            </div>
+
+            {/* Scroll Storytelling Indicator */}
+            <div className="pt-6 sm:pt-10 flex items-center justify-center lg:justify-start gap-2.5 text-xs font-mono text-slate-500">
+              <span className="inline-block w-2 h-2 rounded-full bg-[#4777F5] animate-pulse" />
+              <span>Desplaza para recorrer el proceso de conexión jurídica</span>
             </div>
           </div>
 
-          {/* Right Column: Interactive GSAP 3D Parallax Visual */}
+          {/* Right Column: Interactive 3D Legal Motion Field Visual */}
           <div className="lg:col-span-5 flex justify-center">
             <HeroCrystalVisual />
           </div>
@@ -472,41 +483,41 @@ export default async function HomePage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="rounded-3xl luxury-glass p-6">
-              <div className="h-10 w-10 rounded-2xl bg-[#0F172A] text-blue-400 flex items-center justify-center mb-4">
+            <div className="gsap-trust-card rounded-3xl luxury-glass p-6">
+              <div className="h-10 w-10 rounded-2xl bg-[#101828] text-blue-400 flex items-center justify-center mb-4">
                 <Lock className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold text-[#0F172A] font-serif">Cifrado Bancario AES-256</h3>
+              <h3 className="text-sm font-bold text-[#101828] font-serif">Cifrado Bancario AES-256</h3>
               <p className="text-xs text-slate-600 mt-2 leading-relaxed font-sans">
                 Tus comunicaciones, expedientes y documentos adjuntos se almacenan con encriptación simétrica en reposo y tránsito.
               </p>
             </div>
 
-            <div className="rounded-3xl luxury-glass p-6">
-              <div className="h-10 w-10 rounded-2xl bg-[#0F172A] text-blue-400 flex items-center justify-center mb-4">
+            <div className="gsap-trust-card rounded-3xl luxury-glass p-6">
+              <div className="h-10 w-10 rounded-2xl bg-[#101828] text-blue-400 flex items-center justify-center mb-4">
                 <ShieldCheck className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold text-[#0F172A] font-serif">Colegiatura Auditada</h3>
+              <h3 className="text-sm font-bold text-[#101828] font-serif">Colegiatura Auditada</h3>
               <p className="text-xs text-slate-600 mt-2 leading-relaxed font-sans">
                 Cada abogado somete su carné vigente y número de colegiatura a cotejo manual y digital antes de habilitar su cuenta.
               </p>
             </div>
 
-            <div className="rounded-3xl luxury-glass p-6">
-              <div className="h-10 w-10 rounded-2xl bg-[#0F172A] text-blue-400 flex items-center justify-center mb-4">
+            <div className="gsap-trust-card rounded-3xl luxury-glass p-6">
+              <div className="h-10 w-10 rounded-2xl bg-[#101828] text-blue-400 flex items-center justify-center mb-4">
                 <Building2 className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold text-[#0F172A] font-serif">Ley N.° 29733 (ANPDP)</h3>
+              <h3 className="text-sm font-bold text-[#101828] font-serif">Ley N.° 29733 (ANPDP)</h3>
               <p className="text-xs text-slate-600 mt-2 leading-relaxed font-sans">
                 Bancos de datos personales inscritos ante la Autoridad Nacional de Protección de Datos Personales del MINJUSDH.
               </p>
             </div>
 
-            <div className="rounded-3xl luxury-glass p-6">
-              <div className="h-10 w-10 rounded-2xl bg-[#0F172A] text-blue-400 flex items-center justify-center mb-4">
+            <div className="gsap-trust-card rounded-3xl luxury-glass p-6">
+              <div className="h-10 w-10 rounded-2xl bg-[#101828] text-blue-400 flex items-center justify-center mb-4">
                 <Scale className="w-5 h-5" />
               </div>
-              <h3 className="text-sm font-bold text-[#0F172A] font-serif">Derechos ARCO</h3>
+              <h3 className="text-sm font-bold text-[#101828] font-serif">Derechos ARCO</h3>
               <p className="text-xs text-slate-600 mt-2 leading-relaxed font-sans">
                 Canal formal garantizado de Acceso, Rectificación, Cancelación y Oposición dentro de los plazos legales perentorios.
               </p>
@@ -516,24 +527,24 @@ export default async function HomePage() {
           <div className="mt-8 text-center">
             <Link
               href="/privacidad"
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0F172A] hover:text-[#2563EB] transition-colors font-mono"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#101828] hover:text-[#3157D5] transition-colors font-mono"
             >
               <span>Conoce nuestra Política de Privacidad y Banco de Datos Oficial</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#2563EB]" />
+              <ArrowRight className="w-3.5 h-3.5 text-[#3157D5]" />
             </Link>
           </div>
         </div>
       </section>
 
       {/* ========================================================================= */}
-      {/* 7. CTA FINAL DE CONVERSIÓN                                               */}
+      {/* 7. CTA FINAL DE CONVERSIÓN: ACCIÓN DEFINITIVA                            */}
       {/* ========================================================================= */}
       <section className="py-20 sm:py-24 border-t border-slate-200/80 bg-[#F8FAFC]">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center space-y-6">
-          <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB] font-mono">
+        <div className="gsap-action-box mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 text-center space-y-6">
+          <span className="text-xs font-bold uppercase tracking-wider text-[#3157D5] font-mono">
             Comienza Hoy Mismo
           </span>
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[#0F172A] font-serif">
+          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-[#101828] font-serif">
             El respaldo legal que necesitas está a solo unos clics.
           </h2>
           <p className="text-sm sm:text-base text-slate-600 max-w-xl mx-auto font-sans">
@@ -541,19 +552,21 @@ export default async function HomePage() {
           </p>
 
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/cases/new"
-              className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#0F172A] px-8 py-4 text-base font-bold text-white shadow-xl shadow-slate-900/25 hover:bg-[#1E293B] transition-all border border-slate-800"
-            >
-              <span>Describir mi problema legal</span>
-              <ArrowRight className="w-4 h-4 text-blue-400 transition-transform group-hover:translate-x-1" />
-            </Link>
+            <MagneticButton>
+              <Link
+                href="/cases/new"
+                className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#101828] px-8 py-4 text-base font-bold text-white shadow-xl shadow-slate-900/25 hover:bg-[#1E293B] transition-all border border-slate-800"
+              >
+                <span>Describir mi problema legal</span>
+                <ArrowRight className="w-4 h-4 text-[#4777F5] transition-transform group-hover:translate-x-1" />
+              </Link>
+            </MagneticButton>
 
             <Link
-              href="/#como-funciona"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl luxury-glass px-7 py-4 text-base font-semibold text-[#0F172A] hover:bg-white shadow-sm transition-all"
+              href="#como-funciona"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl luxury-glass px-7 py-4 text-base font-semibold text-[#101828] hover:bg-white shadow-sm transition-all"
             >
-              <HelpCircle className="w-4 h-4 text-[#2563EB]" />
+              <HelpCircle className="w-4 h-4 text-[#3157D5]" />
               <span>Ver cómo funciona</span>
             </Link>
           </div>

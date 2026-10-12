@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, ArrowRight, Briefcase, Calendar, MessageSquare, User, LogOut, LogIn, UserPlus, FolderKanban, FilePlus2, ShieldCheck } from "lucide-react";
+import { Menu, X, Briefcase, Calendar, MessageSquare, LogOut, LogIn, UserPlus, FolderKanban, FilePlus2, ShieldCheck } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 
 interface MobileNavProps {
-  user: any;
+  user: { email?: string | null } | null;
   role: string | null;
   fullName: string | null;
 }
@@ -165,7 +165,7 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
               </>
             )}
 
-            <div className="my-2 border-t border-slate-200/80 pt-4">
+            <div className="my-2 border-t border-[#E6EAF0] pt-4">
               {user ? (
                 <div className="flex flex-col gap-3">
                   <Link
@@ -177,14 +177,14 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                         : "/profile"
                     }
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center gap-3 rounded-xl bg-slate-50 p-3 border border-slate-200/80 shadow-xs hover:bg-slate-100 transition-colors"
+                    className="flex items-center gap-3 rounded-xl bg-[#F7F8FC] p-3 border border-[#E6EAF0] shadow-xs hover:bg-slate-100 transition-colors"
                   >
-                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#0F172A] text-white font-bold text-xs">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#101828] text-white font-bold text-xs">
                       {fullName ? fullName.charAt(0) : "U"}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-[#0F172A] truncate">{fullName || user.email}</p>
-                      <p className="text-[10px] text-blue-600 uppercase tracking-wider font-mono font-bold">
+                      <p className="text-xs font-bold text-[#101828] truncate">{fullName || user.email}</p>
+                      <p className="text-[10px] text-[#3157D5] uppercase tracking-wider font-mono font-bold">
                         {role} • Ver Perfil
                       </p>
                     </div>
@@ -193,7 +193,7 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                   <form action={logoutAction} className="pt-2">
                     <button
                       type="submit"
-                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition-colors"
+                      className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#E6EAF0] bg-white py-2.5 text-xs font-bold text-[#667085] hover:bg-slate-100 hover:text-[#101828] transition-colors cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />
                       Cerrar sesión
@@ -205,15 +205,15 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                   <Link
                     href="/login"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white py-3 text-sm font-semibold text-[#0F172A] shadow-sm hover:border-[#2563EB]"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-[#E6EAF0] bg-white py-3 text-sm font-semibold text-[#101828] shadow-xs hover:border-[#3157D5]"
                   >
-                    <LogIn className="w-4 h-4 text-[#2563EB]" />
+                    <LogIn className="w-4 h-4 text-[#3157D5]" />
                     <span>Iniciar sesión</span>
                   </Link>
                   <Link
                     href="/register"
                     onClick={() => setIsOpen(false)}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-[#0F172A] py-3 text-sm font-bold text-white shadow-md shadow-slate-900/20 border border-slate-800"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-[#101828] py-3 text-sm font-bold text-white shadow-md shadow-slate-900/10"
                   >
                     <UserPlus className="w-4 h-4 text-blue-400" />
                     <span>Crear cuenta gratis</span>

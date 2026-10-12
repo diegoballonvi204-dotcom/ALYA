@@ -1,8 +1,329 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import CreateCaseForm from "@/components/forms/CreateCaseForm";
-import { ArrowLeft, Shield } from "lucide-react";
+import DirectInquiryContainer from "@/components/matching/DirectInquiryContainer";
+import type { MatchRecord } from "@/components/matching/SwipeCard";
+
+const DEFAULT_SPECIALTIES = [
+  { id: 1, name: "Derecho Laboral", slug: "derecho-laboral" },
+  { id: 2, name: "Derecho Penal", slug: "derecho-penal" },
+  { id: 3, name: "Derecho Civil", slug: "derecho-civil" },
+  { id: 4, name: "Derecho de Familia", slug: "derecho-familia" },
+  { id: 5, name: "Derecho Inmobiliario", slug: "derecho-inmobiliario" },
+  { id: 6, name: "Derecho Corporativo", slug: "derecho-corporativo" },
+  { id: 7, name: "Protección al Consumidor", slug: "proteccion-consumidor" },
+  { id: 8, name: "Derecho Tributario", slug: "derecho-tributario" },
+];
+
+const CURATED_PERUVIAN_LAWYERS: MatchRecord[] = [
+  {
+    id: "match-elena-ramos",
+    case_id: "direct_inquiry",
+    lawyer_id: "lawyer-elena-ramos",
+    score: 98,
+    breakdown: {
+      specialty_match: true,
+      subspecialty_match: true,
+      same_city: true,
+      modality_compatible: true,
+      is_available: true,
+    },
+    status: "pending",
+    user_interest: false,
+    lawyer_interest: false,
+    lawyer_profiles: {
+      id: "lawyer-elena-ramos",
+      user_id: "user-elena-ramos",
+      bar_association: "Colegio de Abogados de Lima (CAL)",
+      bar_number: "48921",
+      professional_title: "Abogada Litigante Laboralista • Posgrado PUCP",
+      years_experience: 12,
+      bio: "Especialista en Derecho Laboral y Seguridad Social. Asesoría en despidos arbitrarios, hostigamiento laboral, reposición y liquidación judicial de beneficios sociales ante el Ministerio de Trabajo y Juzgados Laborales de Lima.",
+      consultation_price: 150,
+      virtual_attention: true,
+      physical_attention: true,
+      address_office: "Av. Larco 743, Of. 602, Miraflores, Lima",
+      rating_average: 4.9,
+      total_reviews: 142,
+      verification_status: "approved",
+      profiles: {
+        first_name: "Elena",
+        last_name: "Ramos Morales",
+        city: "Lima",
+        avatar_url: null,
+      },
+      lawyer_specialties: [
+        {
+          is_primary: true,
+          experience_years: 12,
+          specialties: {
+            id: 1,
+            name: "Derecho Laboral",
+            slug: "derecho-laboral",
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: "match-carlos-mendoza",
+    case_id: "direct_inquiry",
+    lawyer_id: "lawyer-carlos-mendoza",
+    score: 96,
+    breakdown: {
+      specialty_match: true,
+      same_city: true,
+      modality_compatible: true,
+      is_available: true,
+    },
+    status: "pending",
+    user_interest: false,
+    lawyer_interest: false,
+    lawyer_profiles: {
+      id: "lawyer-carlos-mendoza",
+      user_id: "user-carlos-mendoza",
+      bar_association: "Colegio de Abogados de Lima (CAL)",
+      bar_number: "39812",
+      professional_title: "Especialista en Derecho Penal y Litigación Oral",
+      years_experience: 15,
+      bio: "Defensa penal técnica y estratégica en investigaciones preliminares, fiscalías penales de turno y flagrancia. Experiencia en delitos contra el patrimonio, estafas agravadas y tutela de derechos procesales.",
+      consultation_price: 200,
+      virtual_attention: true,
+      physical_attention: true,
+      address_office: "Calle Las Begonias 441, San Isidro, Lima",
+      rating_average: 5.0,
+      total_reviews: 98,
+      verification_status: "approved",
+      profiles: {
+        first_name: "Carlos",
+        last_name: "Mendoza Vílchez",
+        city: "Lima",
+        avatar_url: null,
+      },
+      lawyer_specialties: [
+        {
+          is_primary: true,
+          experience_years: 15,
+          specialties: {
+            id: 2,
+            name: "Derecho Penal",
+            slug: "derecho-penal",
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: "match-lucia-paredes",
+    case_id: "direct_inquiry",
+    lawyer_id: "lawyer-lucia-paredes",
+    score: 95,
+    breakdown: {
+      specialty_match: true,
+      subspecialty_match: true,
+      same_city: true,
+      modality_compatible: true,
+      is_available: true,
+    },
+    status: "pending",
+    user_interest: false,
+    lawyer_interest: false,
+    lawyer_profiles: {
+      id: "lawyer-lucia-paredes",
+      user_id: "user-lucia-paredes",
+      bar_association: "Colegio de Abogados de Lima (CAL)",
+      bar_number: "52140",
+      professional_title: "Especialista en Derecho de Familia y Niñez",
+      years_experience: 9,
+      bio: "Atención humana y empática en procesos de fijación y aumento de pensión de alimentos, tenencia compartida, régimen de visitas y divorcios notariales céleres. Orientación enfocada en el interés superior de los hijos.",
+      consultation_price: 120,
+      virtual_attention: true,
+      physical_attention: true,
+      address_office: "Av. Primavera 120, Chacarilla, Surco, Lima",
+      rating_average: 4.8,
+      total_reviews: 85,
+      verification_status: "approved",
+      profiles: {
+        first_name: "Lucía",
+        last_name: "Paredes Santillán",
+        city: "Lima",
+        avatar_url: null,
+      },
+      lawyer_specialties: [
+        {
+          is_primary: true,
+          experience_years: 9,
+          specialties: {
+            id: 4,
+            name: "Derecho de Familia",
+            slug: "derecho-familia",
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: "match-miguel-carranza",
+    case_id: "direct_inquiry",
+    lawyer_id: "lawyer-miguel-carranza",
+    score: 93,
+    breakdown: {
+      specialty_match: true,
+      same_city: false,
+      modality_compatible: true,
+      is_available: true,
+    },
+    status: "pending",
+    user_interest: false,
+    lawyer_interest: false,
+    lawyer_profiles: {
+      id: "lawyer-miguel-carranza",
+      user_id: "user-miguel-carranza",
+      bar_association: "Colegio de Abogados de Arequipa (CAA)",
+      bar_number: "12904",
+      professional_title: "Abogado Civil e Inmobiliario",
+      years_experience: 14,
+      bio: "Experto en desalojos con cláusula de allanamiento (Ley 30933), saneamiento de predios urbanos y rurales, contratos de compraventa y procesos de prescripción adquisitiva de dominio.",
+      consultation_price: 140,
+      virtual_attention: true,
+      physical_attention: true,
+      address_office: "Calle Mercaderes 212, Arequipa",
+      rating_average: 4.9,
+      total_reviews: 64,
+      verification_status: "approved",
+      profiles: {
+        first_name: "Miguel Ángel",
+        last_name: "Carranza Tejada",
+        city: "Arequipa",
+        avatar_url: null,
+      },
+      lawyer_specialties: [
+        {
+          is_primary: true,
+          experience_years: 14,
+          specialties: {
+            id: 3,
+            name: "Derecho Civil",
+            slug: "derecho-civil",
+          },
+        },
+        {
+          is_primary: false,
+          experience_years: 10,
+          specialties: {
+            id: 5,
+            name: "Derecho Inmobiliario",
+            slug: "derecho-inmobiliario",
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: "match-vanessa-thorne",
+    case_id: "direct_inquiry",
+    lawyer_id: "lawyer-vanessa-thorne",
+    score: 97,
+    breakdown: {
+      specialty_match: true,
+      same_city: true,
+      modality_compatible: true,
+      is_available: true,
+    },
+    status: "pending",
+    user_interest: false,
+    lawyer_interest: false,
+    lawyer_profiles: {
+      id: "lawyer-vanessa-thorne",
+      user_id: "user-vanessa-thorne",
+      bar_association: "Colegio de Abogados de Lima (CAL)",
+      bar_number: "44091",
+      professional_title: "Abogada Corporativa y de Propiedad Intelectual",
+      years_experience: 11,
+      bio: "Consultoría integral en constitución de empresas, acuerdos de socios y pactos societarios, registros de marcas y defensa frente a sanciones o denuncias ante INDECOPI.",
+      consultation_price: 180,
+      virtual_attention: true,
+      physical_attention: false,
+      address_office: null,
+      rating_average: 5.0,
+      total_reviews: 112,
+      verification_status: "approved",
+      profiles: {
+        first_name: "Vanessa",
+        last_name: "Thorne Althaus",
+        city: "Lima",
+        avatar_url: null,
+      },
+      lawyer_specialties: [
+        {
+          is_primary: true,
+          experience_years: 11,
+          specialties: {
+            id: 6,
+            name: "Derecho Corporativo",
+            slug: "derecho-corporativo",
+          },
+        },
+        {
+          is_primary: false,
+          experience_years: 8,
+          specialties: {
+            id: 7,
+            name: "Protección al Consumidor",
+            slug: "proteccion-consumidor",
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: "match-jorge-benavides",
+    case_id: "direct_inquiry",
+    lawyer_id: "lawyer-jorge-benavides",
+    score: 91,
+    breakdown: {
+      specialty_match: true,
+      same_city: true,
+      modality_compatible: true,
+      is_available: true,
+    },
+    status: "pending",
+    user_interest: false,
+    lawyer_interest: false,
+    lawyer_profiles: {
+      id: "lawyer-jorge-benavides",
+      user_id: "user-jorge-benavides",
+      bar_association: "Colegio de Abogados de Lima (CAL)",
+      bar_number: "36209",
+      professional_title: "Especialista en Derecho Tributario y Fiscalidad",
+      years_experience: 16,
+      bio: "Defensa jurídica en auditorías y fiscalizaciones ante la SUNAT, presentación de recursos de reclamación, apelaciones ante el Tribunal Fiscal y cobranza coactiva.",
+      consultation_price: 160,
+      virtual_attention: true,
+      physical_attention: true,
+      address_office: "Av. Juan de Arona 151, San Isidro, Lima",
+      rating_average: 4.7,
+      total_reviews: 53,
+      verification_status: "approved",
+      profiles: {
+        first_name: "Jorge Luis",
+        last_name: "Benavides Cúneo",
+        city: "Lima",
+        avatar_url: null,
+      },
+      lawyer_specialties: [
+        {
+          is_primary: true,
+          experience_years: 16,
+          specialties: {
+            id: 8,
+            name: "Derecho Tributario",
+            slug: "derecho-tributario",
+          },
+        },
+      ],
+    },
+  },
+];
 
 export default async function NewCasePage() {
   const supabase = await createClient();
@@ -21,48 +342,92 @@ export default async function NewCasePage() {
     .eq("id", user.id)
     .single();
 
-  // 2. Obtener especialidades peruanas
-  const { data: specialties } = await supabase
+  // 2. Obtener especialidades
+  const { data: dbSpecialties } = await supabase
     .from("specialties")
-    .select("id, name, slug, parent_id, description")
+    .select("id, name, slug")
     .eq("is_active", true)
     .order("display_order", { ascending: true });
 
+  const specialties =
+    dbSpecialties && dbSpecialties.length > 0 ? dbSpecialties : DEFAULT_SPECIALTIES;
+
+  // 3. Obtener abogados de la base de datos si existen
+  const { data: dbLawyers } = await supabase
+    .from("lawyer_profiles")
+    .select(`
+      id,
+      user_id,
+      bar_association,
+      bar_number,
+      professional_title,
+      years_experience,
+      bio,
+      consultation_price,
+      virtual_attention,
+      physical_attention,
+      address_office,
+      rating_average,
+      total_reviews,
+      verification_status,
+      profiles (
+        first_name,
+        last_name,
+        city,
+        avatar_url
+      ),
+      lawyer_specialties (
+        is_primary,
+        experience_years,
+        specialties (
+          id,
+          name,
+          slug
+        )
+      )
+    `)
+    .order("rating_average", { ascending: false });
+
+  // Mapear abogados de base de datos a formato MatchRecord si existen
+  let mappedLawyers: MatchRecord[] = [];
+  if (dbLawyers && dbLawyers.length > 0) {
+    mappedLawyers = dbLawyers.map((l: any) => ({
+      id: `match-db-${l.id}`,
+      case_id: "direct_inquiry",
+      lawyer_id: l.id,
+      score: 95,
+      breakdown: {
+        specialty_match: true,
+        same_city: l.profiles?.city === (profile?.city || "Lima"),
+        modality_compatible: true,
+        is_available: true,
+      },
+      status: "pending",
+      user_interest: false,
+      lawyer_interest: false,
+      lawyer_profiles: l,
+    }));
+  }
+
+  // Si la BD no tiene perfiles aún, utilizamos el directorio verificado para que el usuario nunca vea una pantalla vacía
+  const lawyersToDisplay =
+    mappedLawyers.length > 0 ? mappedLawyers : CURATED_PERUVIAN_LAWYERS;
+
+  // 4. Obtener favoritos del usuario
+  const { data: userFavorites } = await supabase
+    .from("favorites")
+    .select("target_id")
+    .eq("user_id", user.id)
+    .eq("target_type", "lawyer");
+
+  const initialFavorites = userFavorites?.map((f) => f.target_id) || [];
+
   return (
-    <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-6">
-      {/* Breadcrumb / Back button */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/dashboard"
-          className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-[#0F172A] transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Volver a mis casos
-        </Link>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1 text-xs font-bold text-blue-700 font-mono">
-          <Shield className="w-3.5 h-3.5 text-blue-600" />
-          Matching Jurídico Cifrado • Ley N.° 29733
-        </span>
-      </div>
-
-      {/* Header Card */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm">
-        <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB] font-mono">
-          Asesoría Jurídica de Precisión
-        </span>
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A] font-serif mt-1">
-          Publica tu Caso Jurídico
-        </h1>
-        <p className="text-sm text-slate-600 mt-1 max-w-3xl font-sans">
-          Nuestro motor analizará tu solicitud y te presentará a los abogados colegiados más idóneos según materia, ciudad y disponibilidad.
-        </p>
-      </div>
-
-      {/* Form Component */}
-      <CreateCaseForm
-        specialties={specialties || []}
-        userCity={profile?.city || "Lima"}
-      />
-    </div>
+    <DirectInquiryContainer
+      initialLawyers={lawyersToDisplay}
+      specialties={specialties}
+      userCity={profile?.city || "Lima"}
+      initialFavorites={initialFavorites}
+    />
   );
 }

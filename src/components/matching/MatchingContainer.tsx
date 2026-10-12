@@ -5,14 +5,12 @@ import SwipeDeck from "./SwipeDeck";
 import LawyerListView from "./LawyerListView";
 import type { MatchRecord } from "./SwipeCard";
 import {
-  Sparkles,
   Layers,
   List,
   MapPin,
-  Clock,
-  ShieldCheck,
   ArrowLeft,
   Briefcase,
+  CheckCircle2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -52,85 +50,94 @@ export default function MatchingContainer({
   };
 
   return (
-    <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-6">
-      {/* Top Navigation & Case Context Pill */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+      {/* Top Breadcrumb & Return Link */}
+      <div className="flex items-center justify-between">
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-[#0F172A] transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#667085] hover:text-[#101828] transition-colors"
         >
-          <ArrowLeft className="w-4 h-4 text-[#2563EB]" />
-          Volver a mi panel
+          <ArrowLeft className="w-4 h-4 text-[#3157D5]" />
+          <span>Volver a mis casos</span>
         </Link>
 
         {/* View Mode Toggle Pill */}
-        <div className="flex items-center rounded-xl border border-slate-200 bg-white p-1 self-start sm:self-auto shadow-xs">
+        <div
+          className="flex items-center rounded-2xl border border-[#E6EAF0] bg-white p-1 shadow-xs"
+          role="tablist"
+          aria-label="Modo de visualización"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={viewMode === "swipe"}
             onClick={() => setViewMode("swipe")}
-            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               viewMode === "swipe"
-                ? "bg-[#0F172A] text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-[#101828] text-white shadow-xs"
+                : "text-[#667085] hover:text-[#101828]"
             }`}
           >
-            <Layers className="w-4 h-4 text-blue-400" />
-            Tarjetas Swipe
+            <Layers className="w-3.5 h-3.5 text-blue-400" />
+            <span>Tarjetas Swipe</span>
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={viewMode === "list"}
             onClick={() => setViewMode("list")}
-            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+            className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-1.5 text-xs font-bold transition-all cursor-pointer ${
               viewMode === "list"
-                ? "bg-[#0F172A] text-white shadow-xs"
-                : "text-slate-600 hover:text-slate-900"
+                ? "bg-[#101828] text-white shadow-xs"
+                : "text-[#667085] hover:text-[#101828]"
             }`}
           >
-            <List className="w-4 h-4 text-blue-400" />
-            Modo Directorio
+            <List className="w-3.5 h-3.5 text-blue-400" />
+            <span>Directorio ({matches.length})</span>
           </button>
         </div>
       </div>
 
-      {/* Case Summary Card */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            <span className="rounded-md bg-blue-50 px-2.5 py-1 text-xs font-bold text-[#2563EB] font-mono">
+      {/* Case Header Card - Clean, Moderate & Informative */}
+      <header className="rounded-3xl border border-[#E6EAF0] bg-white p-5 sm:p-7 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2.5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[#EEF2FF] border border-[#D1DEFC] px-3 py-0.5 text-xs font-bold text-[#3157D5] font-mono">
               {caseData.specialties?.name || "Materia Jurídica"}
             </span>
-            <span className="text-[10px] font-mono uppercase bg-slate-100 text-slate-700 px-2 py-1 rounded-md font-semibold">
+            <span className="text-[11px] font-mono uppercase bg-[#F7F8FC] border border-[#E6EAF0] text-[#667085] px-2.5 py-0.5 rounded-full font-semibold">
               Urgencia {caseData.urgency}
             </span>
           </div>
 
-          <span className="text-xs font-mono text-[#2563EB] font-bold">
-            {matches.length} profesionales compatibles identificados
+          <span className="text-xs font-mono font-bold text-[#3157D5] flex items-center gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5 text-[#198754]" />
+            <span>{matches.length} profesionales idóneos disponibles</span>
           </span>
         </div>
 
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0F172A] font-serif">
-          {caseData.title}
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#101828] font-serif">
+          Encuentra al abogado adecuado para tu caso
         </h1>
 
-        <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500">
-          <span className="flex items-center gap-1.5 font-medium text-slate-700">
-            <MapPin className="w-3.5 h-3.5 text-[#2563EB]" />
+        <div className="flex flex-wrap items-center gap-3 mt-3 pt-3 border-t border-[#E6EAF0] text-xs text-[#667085]">
+          <span className="flex items-center gap-1 font-medium text-[#202938]">
+            <MapPin className="w-3.5 h-3.5 text-[#3157D5]" />
             {caseData.city}
           </span>
           <span>•</span>
-          <span className="capitalize">{caseData.modality}</span>
+          <span className="capitalize text-[#202938]">Modalidad: {caseData.modality}</span>
           <span>•</span>
-          <span className="text-slate-500 line-clamp-1 max-w-xl">
-            {caseData.description}
+          <span className="text-[#667085] line-clamp-1 max-w-md italic">
+            &ldquo;{caseData.title}&rdquo;
           </span>
         </div>
-      </div>
+      </header>
 
-      {/* Matching Experience */}
+      {/* Main Matching Area */}
       {matches.length > 0 ? (
         viewMode === "swipe" ? (
-          <div className="py-2">
+          <main className="py-2">
             <SwipeDeck
               matches={matches}
               caseId={caseData.id}
@@ -138,39 +145,39 @@ export default function MatchingContainer({
               favoritesSet={favoritesSet}
               onFavoriteChange={handleFavoriteChange}
             />
-          </div>
+          </main>
         ) : (
-          <LawyerListView
-            matches={matches}
-            caseId={caseData.id}
-            favoritesSet={favoritesSet}
-            onFavoriteChange={handleFavoriteChange}
-          />
+          <main>
+            <LawyerListView
+              matches={matches}
+              caseId={caseData.id}
+              favoritesSet={favoritesSet}
+              onFavoriteChange={handleFavoriteChange}
+            />
+          </main>
         )
       ) : (
         /* Empty State */
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-12 text-center shadow-xs">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-[#2563EB] mb-4">
+        <div className="rounded-3xl border border-dashed border-[#E6EAF0] bg-white p-10 sm:p-14 text-center shadow-xs">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#3157D5] mb-4">
             <Briefcase className="w-8 h-8" />
           </div>
-          <h2 className="text-lg font-bold text-[#0F172A] font-serif">
-            Buscando abogados colegiados compatibles
+          <h2 className="text-xl font-bold text-[#101828] font-serif">
+            Ampliando la búsqueda de abogados colegiados
           </h2>
-          <p className="text-xs text-slate-500 max-w-md mx-auto mt-2 leading-relaxed">
-            Actualmente no hay abogados verificados en tu ciudad exacta con esta subespecialidad
-            disponibles de inmediato. Tu caso ha sido publicado en la red y serás notificado en
-            cuanto un profesional muestre interés.
+          <p className="text-xs sm:text-sm text-[#667085] max-w-md mx-auto mt-2 leading-relaxed">
+            No hay abogados con esta subespecialidad exacta con disponibilidad instantánea en {caseData.city}. Tu caso permanece publicado de forma segura y serás notificado en cuanto un profesional afín revise el expediente.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               href="/cases/new"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] px-6 py-3 text-xs font-bold text-white transition-all shadow-md shadow-slate-900/10"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#101828] hover:bg-[#1E293B] px-6 py-3 text-xs font-bold text-white transition-all shadow-md cursor-pointer"
             >
-              Publicar otro caso
+              Publicar otra consulta
             </Link>
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-6 py-3 text-xs font-semibold text-slate-700 hover:bg-white transition-colors"
+              className="inline-flex items-center gap-2 rounded-xl border border-[#E6EAF0] bg-[#F7F8FC] px-6 py-3 text-xs font-semibold text-[#202938] hover:bg-white transition-colors cursor-pointer"
             >
               Ir a mi panel
             </Link>
