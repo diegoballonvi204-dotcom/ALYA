@@ -170,16 +170,10 @@ export default function MatchingContainer({
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/cases/new"
+              href="/dashboard"
               className="inline-flex items-center gap-2 rounded-xl bg-[#101828] hover:bg-[#1E293B] px-6 py-3 text-xs font-bold text-white transition-all shadow-md cursor-pointer"
             >
-              Publicar otra consulta
-            </Link>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center gap-2 rounded-xl border border-[#E6EAF0] bg-[#F7F8FC] px-6 py-3 text-xs font-semibold text-[#202938] hover:bg-white transition-colors cursor-pointer"
-            >
-              Ir a mi panel
+              Volver a Mis Casos
             </Link>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Briefcase, Calendar, MessageSquare, LogOut, LogIn, UserPlus, FolderKanban, FilePlus2, ShieldCheck } from "lucide-react";
+import { Menu, X, Briefcase, Calendar, MessageSquare, LogOut, LogIn, UserPlus, FolderKanban, ShieldCheck } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 
 interface MobileNavProps {
@@ -145,14 +145,6 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                 >
                   <FolderKanban className="w-4 h-4 text-[#2563EB]" />
                   <span>Mis Casos</span>
-                </Link>
-                <Link
-                  href="/cases/new"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-2 py-2 hover:text-[#2563EB] transition-colors"
-                >
-                  <FilePlus2 className="w-4 h-4 text-[#2563EB]" />
-                  <span>Publicar Consulta</span>
                 </Link>
                 <Link
                   href="/chat"

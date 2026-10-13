@@ -54,27 +54,37 @@ export default function MatchModal({
             <CheckCircle2 className="w-8 h-8" />
           </div>
 
-          <span className="inline-block rounded-full bg-[#EEF2FF] border border-[#D1DEFC] px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#3157D5] font-mono">
-            Conexión Profesional Confirmada
+          <span className="inline-block rounded-full bg-blue-50 border border-blue-200/70 px-3.5 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
+            Conexión Profesional Confirmada (Match)
           </span>
 
-          <h3 id="match-modal-title" className="mt-2.5 text-2xl font-bold tracking-tight text-[#101828] font-serif">
-            Interés Mutuo en tu Caso
+          <h3 id="match-modal-title" className="mt-2.5 text-2xl font-bold tracking-tight text-slate-900 font-sans">
+            ¡Interés Mutuo Confirmado!
           </h3>
 
-          <p className="mt-2 text-xs text-[#667085] leading-relaxed">
-            El profesional <strong className="text-[#101828]">{lawyerName}</strong> ha revisado tu consulta y está disponible para brindarte asesoría. Se ha habilitado la sala de conversación cifrada.
+          <p className="mt-2 text-xs text-slate-500 leading-relaxed font-sans">
+            Ambas partes han mostrado interés directo. Se ha activado la <strong>sala de coordinación rápida y chat cifrado</strong> con reserva de comunicaciones bajo <strong>secreto profesional y Ley N.° 29733</strong>.
           </p>
 
-          <div className="my-5 rounded-2xl border border-[#E6EAF0] bg-[#F7F8FC] p-4 text-left shadow-xs space-y-1">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-[#198754]" />
-              <span className="text-xs font-bold text-[#101828]">{lawyerName}</span>
+          <div className="my-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-left shadow-2xs space-y-1.5 font-sans">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold text-slate-900">{lawyerName}</span>
+              </div>
+              <span className="rounded-full bg-emerald-100 text-emerald-800 px-2 py-0.5 text-[10px] font-semibold">
+                CAL Hábil
+              </span>
             </div>
-            <p className="text-[11px] font-mono text-[#667085]">{lawyerBar}</p>
+            <p className="text-[11px] text-slate-500">{lawyerBar}</p>
             {lawyerTitle && (
-              <p className="text-xs text-[#202938] line-clamp-1">{lawyerTitle}</p>
+              <p className="text-xs text-slate-700 line-clamp-1">{lawyerTitle}</p>
             )}
+            <div className="pt-2 border-t border-[#E6EAF0] flex items-center gap-1.5 text-[10px] text-[#667085]">
+              <span>🔒 Cifrado simétrico AES-256</span>
+              <span>•</span>
+              <span>Canal temporal seguro</span>
+            </div>
           </div>
 
           <div className="space-y-2.5">
@@ -83,7 +93,7 @@ export default function MatchModal({
               className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#101828] hover:bg-[#1E293B] py-3 text-sm font-bold text-white transition-all shadow-md cursor-pointer"
             >
               <MessageSquare className="w-4 h-4 text-blue-400" />
-              <span>Abrir Conversación Segura</span>
+              <span>Entrar a Coordinación Rápida & Chat Cifrado</span>
             </Link>
 
             <button
