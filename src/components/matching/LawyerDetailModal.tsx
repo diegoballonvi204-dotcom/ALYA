@@ -63,13 +63,13 @@ export default function LawyerDetailModal({
           {/* Header Bar */}
           <div className="flex items-center justify-between border-b border-[#E6EAF0] px-6 py-4 bg-[#F7F8FC]/80">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#3157D5] font-mono">
+              <span className="text-xs font-semibold uppercase tracking-wider text-blue-600 font-sans">
                 Perfil Profesional Verificado
               </span>
             </div>
             <button
               onClick={onClose}
-              className="rounded-full p-2 text-[#667085] hover:bg-slate-200 hover:text-[#101828] transition-colors cursor-pointer"
+              className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors cursor-pointer"
               aria-label="Cerrar perfil"
             >
               <X className="w-5 h-5" />
@@ -77,17 +77,17 @@ export default function LawyerDetailModal({
           </div>
 
           {/* Modal Scrollable Body */}
-          <div className="overflow-y-auto p-6 sm:p-8 space-y-6 flex-1">
+          <div className="overflow-y-auto p-6 sm:p-8 space-y-6 flex-1 font-sans">
             {/* Top Identity Block */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-5">
-              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-[#101828] text-white font-bold text-2xl shadow-sm font-serif">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 to-slate-800 text-white font-bold text-2xl shadow-sm font-sans">
                 {profile.first_name?.[0] || "A"}
                 {profile.last_name?.[0] || "L"}
               </div>
 
               <div className="space-y-1 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 id="modal-lawyer-name" className="text-xl sm:text-2xl font-bold text-[#101828] font-serif">
+                  <h2 id="modal-lawyer-name" className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-sans">
                     {profile.first_name} {profile.last_name}
                   </h2>
                   {isVerified && (
@@ -126,16 +126,16 @@ export default function LawyerDetailModal({
             </div>
 
             {/* Honest Compatibility Explanation Box */}
-            <div className="rounded-2xl border border-[#D1DEFC] bg-[#F0F4FE] p-4.5 space-y-2">
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-4.5 space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#3157D5] font-mono">
+                <span className="text-xs font-semibold uppercase tracking-wider text-blue-700">
                   Índice de afinidad con tu caso
                 </span>
-                <span className="font-mono text-sm font-extrabold text-[#3157D5]">
+                <span className="text-sm font-bold text-blue-700">
                   {Math.round(match.score)}% de concordancia
                 </span>
               </div>
-              <p className="text-xs text-[#667085] leading-relaxed">
+              <p className="text-xs text-slate-600 leading-relaxed">
                 Este porcentaje refleja la coincidencia objetiva entre la materia de tu consulta, la ubicación territorial, la modalidad preferida y la experiencia acreditada del abogado. <strong>No representa una probabilidad de éxito jurídico</strong>, ya que cada caso depende de sus méritos legales.
               </p>
               <div className="pt-2">
@@ -150,11 +150,11 @@ export default function LawyerDetailModal({
 
             {/* Professional Bio */}
             <div className="space-y-2">
-              <h3 className="text-sm font-bold text-[#101828] uppercase tracking-wider font-mono">
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Trayectoria y Presentación
               </h3>
-              <div className="rounded-2xl border border-[#E6EAF0] bg-[#F7F8FC] p-4">
-                <p className="text-sm text-[#202938] leading-relaxed whitespace-pre-line">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+                <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">
                   {lawyer.bio ||
                     "Abogado en ejercicio activo, debidamente registrado y habilitado. Brinda asesoría con enfoque ético, rigurosidad procesal y comunicación transparente con el cliente."}
                 </p>
@@ -163,8 +163,8 @@ export default function LawyerDetailModal({
 
             {/* Modalities & Pricing Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-[#E6EAF0] p-4 space-y-2 bg-white">
-                <span className="text-xs font-bold uppercase tracking-wider text-[#667085] font-mono">
+              <div className="rounded-2xl border border-slate-200 p-4 space-y-2 bg-white">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Modalidad de Atención
                 </span>
                 <div className="space-y-1.5 text-xs text-[#202938]">

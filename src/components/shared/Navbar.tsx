@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { LogOut, ShieldCheck, Briefcase, LogIn, UserPlus, FilePlus2, MessageSquare, Calendar, FolderKanban } from "lucide-react";
+import { LogOut, ShieldCheck, Briefcase, LogIn, UserPlus, MessageSquare, Calendar, FolderKanban } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { MobileNav } from "./MobileNav";
@@ -117,10 +117,6 @@ export async function Navbar() {
               <Link href="/dashboard" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
                 <FolderKanban className="w-4 h-4 text-[#3157D5]" />
                 <span>Mis Casos</span>
-              </Link>
-              <Link href="/cases/new" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
-                <FilePlus2 className="w-4 h-4 text-[#3157D5]" />
-                <span>Publicar Consulta</span>
               </Link>
               <Link href="/chat" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
                 <MessageSquare className="w-4 h-4 text-[#3157D5]" />

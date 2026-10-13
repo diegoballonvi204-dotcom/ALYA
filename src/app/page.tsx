@@ -29,6 +29,7 @@ import { HeroCrystalVisual } from "@/components/home/HeroCrystalVisual";
 import { MatchingAlgorithmVisual } from "@/components/home/MatchingAlgorithmVisual";
 import { GsapScrollController } from "@/components/home/GsapScrollController";
 import { MagneticButton } from "@/components/home/MagneticButton";
+import { DiscoveryShowcase } from "@/components/home/DiscoveryShowcase";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -151,7 +152,7 @@ export default async function HomePage() {
             <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
               <MagneticButton>
                 <Link
-                  href="/cases/new"
+                  href="/dashboard"
                   className="w-full sm:w-auto group inline-flex items-center justify-center gap-3 rounded-xl bg-[#101828] px-8 py-4 text-sm sm:text-base font-bold text-white shadow-xl shadow-slate-900/20 hover:bg-[#1E293B] hover:-translate-y-0.5 transition-all border border-slate-800"
                 >
                   <span>Encontrar mi abogado</span>
@@ -175,9 +176,87 @@ export default async function HomePage() {
             </div>
           </div>
 
-          {/* Right Column: Interactive 3D Legal Motion Field Visual */}
+          {/* Right Column: Real-Time WebGL 3D Legal Motion Field Visual */}
           <div className="lg:col-span-5 flex justify-center">
             <HeroCrystalVisual />
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================================================= */}
+      {/* ESCENA 1: EL PROBLEMA (El Laberinto Tradicional vs El Estándar ALYA)       */}
+      {/* ========================================================================= */}
+      <section className="py-16 sm:py-24 border-t border-slate-200/80 bg-[#101828] text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="text-center max-w-2xl mx-auto mb-14 space-y-3">
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-400 font-mono block">
+              Escena 1 • El Problema Jurídico
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-white font-serif">
+              Por qué encontrar al abogado adecuado solía ser un laberinto.
+            </h2>
+            <p className="text-sm sm:text-base text-slate-300">
+              La asimetría de información y los directorios comerciales pagados convertían una necesidad legal urgente en una experiencia llena de incertidumbre.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* El Modelo Tradicional */}
+            <div className="rounded-3xl bg-white/5 border border-white/10 p-7 space-y-5 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center font-bold text-sm">
+                  ✕
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-serif">El modelo tradicional</h3>
+                  <p className="text-xs text-slate-400 font-mono">Incertidumbre y tarifas arbitrarias</p>
+                </div>
+              </div>
+
+              <ul className="space-y-3 text-xs text-slate-300">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-rose-400 font-bold shrink-0">•</span>
+                  <span>Directorios saturados donde la visibilidad depende de quién paga más publicidad.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-rose-400 font-bold shrink-0">•</span>
+                  <span>Colegiaturas no verificadas ni auditadas en tiempo real.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-rose-400 font-bold shrink-0">•</span>
+                  <span>Pérdida de días enteros cotizando sin saber si el profesional tiene experiencia en tu materia exacta.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* El Estándar ALYA */}
+            <div className="rounded-3xl bg-gradient-to-br from-[#1E293B] to-[#0F172A] border border-blue-500/30 p-7 space-y-5 shadow-xl shadow-blue-500/5">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-[#3157D5] text-white flex items-center justify-center font-bold text-sm shadow-md">
+                  ✓
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-serif">El estándar ALYA</h3>
+                  <p className="text-xs text-blue-400 font-mono">Precisión y colegiatura auditada</p>
+                </div>
+              </div>
+
+              <ul className="space-y-3 text-xs text-slate-200">
+                <li className="flex items-start gap-2.5">
+                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                  <span><strong>Compatibilidad algorítmica:</strong> Correspondencia objetiva por hechos y especialidad procesal concreta.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                  <span><strong>Colegiatura CAL/CAA auditada:</strong> Solo abogados habilitados con número oficial visible.</span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                  <span><strong>Privacidad garantizada (Ley N.° 29733):</strong> Secreto profesional y datos confidenciales resguardados en bóveda cifrada.</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -188,10 +267,10 @@ export default async function HomePage() {
       <section id="como-funciona" className="py-20 sm:py-28 border-t border-slate-200/80 bg-white relative">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-16 space-y-3">
-            <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB] font-mono block">
+            <span className="text-xs font-bold uppercase tracking-wider text-[#3157D5] font-mono block">
               Metodología Estructurada
             </span>
-            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#0F172A] font-serif">
+            <h2 className="text-2xl sm:text-4xl font-extrabold tracking-tight text-[#101828] font-serif">
               Un proceso riguroso, de principio a fin.
             </h2>
             <p className="text-sm sm:text-base text-slate-600">
@@ -205,12 +284,12 @@ export default async function HomePage() {
             <div className="gsap-step-card rounded-3xl luxury-glass luxury-glass-interactive p-7 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-5">
-                  <span className="font-mono text-2xl font-black text-[#2563EB]">01</span>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F172A] text-blue-400 shadow-sm">
+                  <span className="font-mono text-2xl font-black text-[#3157D5]">01</span>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#101828] text-blue-400 shadow-sm">
                     <FileText className="h-5 w-5" />
                   </div>
                 </div>
-                <h3 className="text-base font-bold text-[#0F172A] font-serif">Cuéntanos tu caso</h3>
+                <h3 className="text-base font-bold text-[#101828] font-serif">Cuéntanos tu caso</h3>
                 <p className="text-xs text-slate-600 mt-2.5 leading-relaxed font-sans">
                   Sin tecnicismos jurídicos. Describe los hechos en lenguaje natural. El sistema clasifica preliminarmente la materia, gravedad y urgencia.
                 </p>
@@ -224,12 +303,12 @@ export default async function HomePage() {
             <div className="gsap-step-card rounded-3xl luxury-glass luxury-glass-interactive p-7 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-5">
-                  <span className="font-mono text-2xl font-black text-[#2563EB]">02</span>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F172A] text-blue-400 shadow-sm">
+                  <span className="font-mono text-2xl font-black text-[#3157D5]">02</span>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#101828] text-blue-400 shadow-sm">
                     <Sparkles className="h-5 w-5" />
                   </div>
                 </div>
-                <h3 className="text-base font-bold text-[#0F172A] font-serif">Analizamos tu necesidad</h3>
+                <h3 className="text-base font-bold text-[#101828] font-serif">Analizamos tu necesidad</h3>
                 <p className="text-xs text-slate-600 mt-2.5 leading-relaxed font-sans">
                   Nuestro motor cruza especialidad procesal, distrito judicial, cuantía estimada y disponibilidad de agenda con la base de datos de abogados.
                 </p>
@@ -243,12 +322,12 @@ export default async function HomePage() {
             <div className="gsap-step-card rounded-3xl luxury-glass luxury-glass-interactive p-7 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-5">
-                  <span className="font-mono text-2xl font-black text-[#2563EB]">03</span>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F172A] text-blue-400 shadow-sm">
+                  <span className="font-mono text-2xl font-black text-[#3157D5]">03</span>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#101828] text-blue-400 shadow-sm">
                     <Users className="h-5 w-5" />
                   </div>
                 </div>
-                <h3 className="text-base font-bold text-[#0F172A] font-serif">Encuentra compatibles</h3>
+                <h3 className="text-base font-bold text-[#101828] font-serif">Encuentra compatibles</h3>
                 <p className="text-xs text-slate-600 mt-2.5 leading-relaxed font-sans">
                   Explora abogados con porcentaje de afinidad desglosado. Puedes dar "Me interesa" (swipe bilateral) o examinar perfiles detallados en directorio.
                 </p>
@@ -262,12 +341,12 @@ export default async function HomePage() {
             <div className="gsap-step-card rounded-3xl luxury-glass luxury-glass-interactive p-7 relative flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-5">
-                  <span className="font-mono text-2xl font-black text-[#2563EB]">04</span>
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0F172A] text-blue-400 shadow-sm">
+                  <span className="font-mono text-2xl font-black text-[#3157D5]">04</span>
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#101828] text-blue-400 shadow-sm">
                     <CheckCircle2 className="h-5 w-5" />
                   </div>
                 </div>
-                <h3 className="text-base font-bold text-[#0F172A] font-serif">Contacta con el abogado</h3>
+                <h3 className="text-base font-bold text-[#101828] font-serif">Contacta con el abogado</h3>
                 <p className="text-xs text-slate-600 mt-2.5 leading-relaxed font-sans">
                   Cuando el interés es recíproco, se concreta el MATCH. Se desbloquea la sala de chat cifrada, el intercambio de expedientes y la reserva de citas.
                 </p>
@@ -281,10 +360,12 @@ export default async function HomePage() {
       </section>
 
       {/* ========================================================================= */}
-      {/* 3. ESPECIALIDADES JURÍDICAS CURADAS                                       */}
+      {/* 3. ESPECIALIDADES JURÍDICAS & DEMO DE DESCUBRIMIENTO                       */}
       {/* ========================================================================= */}
       <section id="especialidades" className="py-20 sm:py-28 border-t border-slate-200/80 bg-[#F8FAFC]">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
+          {/* Interactive Discovery Showcase Card */}
+          <DiscoveryShowcase />
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-14">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB] font-mono">
@@ -295,10 +376,10 @@ export default async function HomePage() {
               </h2>
             </div>
             <Link
-              href="/cases/new"
+              href="/dashboard"
               className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#0F172A] hover:text-[#2563EB] transition-colors"
             >
-              <span>Publicar consulta personalizada</span>
+              <span>Explorar especialistas</span>
               <ChevronRight className="w-4 h-4 text-[#2563EB]" />
             </Link>
           </div>
@@ -331,7 +412,7 @@ export default async function HomePage() {
 
                   <div className="mt-5 pt-3 border-t border-slate-100">
                     <Link
-                      href={`/cases/new?specialty=${spec.slug}`}
+                      href={`/dashboard?specialty=${spec.slug}`}
                       className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0F172A] group-hover:text-[#2563EB] transition-colors"
                     >
                       <span>Consultar esta materia</span>
@@ -554,7 +635,7 @@ export default async function HomePage() {
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <MagneticButton>
               <Link
-                href="/cases/new"
+                href="/dashboard"
                 className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#101828] px-8 py-4 text-base font-bold text-white shadow-xl shadow-slate-900/25 hover:bg-[#1E293B] transition-all border border-slate-800"
               >
                 <span>Describir mi problema legal</span>
@@ -603,7 +684,7 @@ export default async function HomePage() {
               <ul className="space-y-2 text-xs">
                 <li><Link href="/#como-funciona" className="hover:text-blue-400 transition-colors">¿Cómo funciona?</Link></li>
                 <li><Link href="/#matching" className="hover:text-blue-400 transition-colors">Algoritmo de Matching</Link></li>
-                <li><Link href="/cases/new" className="hover:text-blue-400 transition-colors">Publicar Caso</Link></li>
+                <li><Link href="/dashboard" className="hover:text-blue-400 transition-colors">Explorar Abogados</Link></li>
                 <li><Link href="/login" className="hover:text-blue-400 transition-colors">Iniciar Sesión</Link></li>
               </ul>
             </div>
@@ -612,11 +693,11 @@ export default async function HomePage() {
             <div className="space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-white font-mono">Especialidades</h4>
               <ul className="space-y-2 text-xs">
-                <li><Link href="/cases/new?specialty=derecho-laboral" className="hover:text-blue-400 transition-colors">Derecho Laboral</Link></li>
-                <li><Link href="/cases/new?specialty=derecho-penal" className="hover:text-blue-400 transition-colors">Derecho Penal</Link></li>
-                <li><Link href="/cases/new?specialty=derecho-civil" className="hover:text-blue-400 transition-colors">Derecho Civil</Link></li>
-                <li><Link href="/cases/new?specialty=derecho-familia" className="hover:text-blue-400 transition-colors">Derecho de Familia</Link></li>
-                <li><Link href="/cases/new?specialty=derecho-inmobiliario" className="hover:text-blue-400 transition-colors">Derecho Inmobiliario</Link></li>
+                <li><Link href="/dashboard?specialty=derecho-laboral" className="hover:text-blue-400 transition-colors">Derecho Laboral</Link></li>
+                <li><Link href="/dashboard?specialty=derecho-penal" className="hover:text-blue-400 transition-colors">Derecho Penal</Link></li>
+                <li><Link href="/dashboard?specialty=derecho-civil" className="hover:text-blue-400 transition-colors">Derecho Civil</Link></li>
+                <li><Link href="/dashboard?specialty=derecho-familia" className="hover:text-blue-400 transition-colors">Derecho de Familia</Link></li>
+                <li><Link href="/dashboard?specialty=derecho-inmobiliario" className="hover:text-blue-400 transition-colors">Derecho Inmobiliario</Link></li>
               </ul>
             </div>
 

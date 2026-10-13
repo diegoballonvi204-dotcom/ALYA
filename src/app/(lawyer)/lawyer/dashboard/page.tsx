@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { ShieldCheck, Briefcase, Star, MapPin, CheckCircle, Clock, Zap } from "lucide-react";
 import CompatibleCaseCard from "@/components/lawyer/CompatibleCaseCard";
+import LawyerCompatibleCasesContainer from "@/components/lawyer/LawyerCompatibleCasesContainer";
 import LawyerTierBadge from "@/components/lawyer/LawyerTierBadge";
 import SubscriptionExpiryBanner from "@/components/lawyer/SubscriptionExpiryBanner";
 import { getMyLawyerSubscriptionAction } from "@/actions/subscription.actions";
@@ -243,45 +244,11 @@ export default async function LawyerDashboardPage({
         </div>
       </div>
 
-      {/* Casos Compatibles Feed */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-[#0F172A] font-serif">
-              Casos Jurídicos Compatibles
-            </h2>
-            <p className="text-xs text-slate-500">
-              Personas que buscan asesoría afín a tus especialidades registradas.
-            </p>
-          </div>
-          <span className="text-xs font-mono text-slate-500 font-bold">
-            {displayCases.length} disponibles
-          </span>
-        </div>
-
-        {displayCases.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {displayCases.map((item) => (
-              <CompatibleCaseCard
-                key={item.caseItem.id}
-                caseItem={item.caseItem}
-                matchInfo={item.matchInfo}
-                isRadarVip={item.isRadarVip}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-12 text-center shadow-xs">
-            <Briefcase className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <p className="text-base font-bold text-[#0F172A] font-serif">
-              No hay casos nuevos en tus áreas en este momento
-            </p>
-            <p className="text-xs text-slate-500 mt-1">
-              Te notificaremos en cuanto un usuario publique un problema legal afín a tu especialidad.
-            </p>
-          </div>
-        )}
-      </div>
+      {/* Casos Compatibles Feed (Swipe Micro-interactions & Urgencia) */}
+      <LawyerCompatibleCasesContainer
+        initialCases={displayCases}
+        hasRadarPriority={hasRadarPriority}
+      />
     </div>
   );
 }
