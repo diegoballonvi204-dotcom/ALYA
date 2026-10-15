@@ -408,3 +408,139 @@ export async function directMatchWithLawyerAction(params: {
     message: "Interés y detalles de consulta registrados exitosamente",
   };
 }
+
+export type CaseStatus =
+  | "draft"
+  | "published"
+  | "matching"
+  | "contacted"
+  | "in_consultation"
+  | "in_progress"
+  | "closed"
+  | "cancelled";
+
+/**
+ * Actualiza el estado dentro del ciclo de vida del caso legal.
+ * Autorizado para el cliente titular o el abogado con patrocinio / match confirmado.
+ */
+export async function updateCaseStatusAction(params: {
+  caseId: string;
+  status: CaseStatus;
+  resolutionNotes?: string;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { success: false, error: "No autenticado" };
+  }
+
+  // 1. Obtener caso
+  const { data: caseItem, error: caseErr } = await supabase
+    .from("cases")
+    .select("id, user_id, status, title")
+    .eq("id", params.caseId)
+    .single();
+
+  if (caseErr || !caseItem) {
+    return { success: false, error: "Caso no encontrado." };
+  }
+
+  const isClientOwner = caseItem.user_id === user.id;
+
+  // 2. Verificar si es el abogado asignado (con match activo)
+  let isMatchedLawyer = false;
+  if (!isClientOwner) {
+    const { data: lawyerProfile } = await supabase
+      .from("lawyer_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (lawyerProfile) {
+      const { data: match } = await supabase
+        .from("matches")
+        .select("id, status")
+        .eq("case_id", params.caseId)
+        .eq("lawyer_id", lawyerProfile.id)
+        .in("status", ["matched", "lawyer_interested"])
+        .maybeSingle();
+
+      if (match) {
+        isMatchedLawyer = true;
+      }
+    }
+  }
+
+  if (!isClientOwner && !isMatchedLawyer) {
+    return {
+      success: false,
+      error: "No tienes autorización para modificar el estado de este caso legal.",
+    };
+  }
+
+  // 3. Actualizar estado
+  const { error: updateErr } = await supabase
+    .from("cases")
+    .update({
+      status: params.status,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", params.caseId);
+
+  if (updateErr) {
+    return { success: false, error: updateErr.message };
+  }
+
+  // 4. Notificar a la contraparte si existe match
+  try {
+    const { data: matches } = await supabase
+      .from("matches")
+      .select("lawyer_id, lawyer_profiles(user_id)")
+      .eq("case_id", params.caseId)
+      .eq("status", "matched");
+
+    if (matches && matches.length > 0) {
+      for (const m of matches) {
+        const targetUserId = isClientOwner
+          ? (m.lawyer_profiles as any)?.user_id
+          : caseItem.user_id;
+
+        if (targetUserId) {
+          const statusLabels: Record<string, string> = {
+            published: "Activo / En búsqueda",
+            in_consultation: "En Consulta",
+            in_progress: "En Proceso",
+            closed: "Concluido / Resuelto",
+            cancelled: "Cancelado",
+          };
+          const readable = statusLabels[params.status] || params.status;
+
+          await supabase.from("notifications").insert({
+            user_id: targetUserId,
+            type: "case_status_changed",
+            title: `Estado de caso actualizado: ${readable}`,
+            message: `El caso "${caseItem.title}" ha sido marcado como "${readable}".`,
+            data: { caseId: params.caseId, newStatus: params.status },
+          });
+        }
+      }
+    }
+  } catch (notifErr) {
+    console.error("Error al emitir notificación de cambio de estado:", notifErr);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath(`/cases/${params.caseId}/match`);
+  revalidatePath("/lawyer/dashboard");
+  revalidatePath("/chat");
+
+  return {
+    success: true,
+    newStatus: params.status,
+    message: "Estado del caso actualizado correctamente.",
+  };
+}
+

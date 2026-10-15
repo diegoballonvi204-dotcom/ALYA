@@ -17,6 +17,7 @@ export function HeroCrystalVisual() {
   const cardRef = useRef<HTMLDivElement>(null);
   const faceLayerRef = useRef<HTMLDivElement>(null);
   const spotlightRef = useRef<HTMLDivElement>(null);
+  const eyeGlowRef = useRef<HTMLDivElement>(null);
   const chipTopRef = useRef<HTMLDivElement>(null);
   const chipBottomRef = useRef<HTMLDivElement>(null);
   const glowRef = useRef<HTMLDivElement>(null);
@@ -25,6 +26,7 @@ export function HeroCrystalVisual() {
     const card = cardRef.current;
     const faceLayer = faceLayerRef.current;
     const spotlight = spotlightRef.current;
+    const eyeGlow = eyeGlowRef.current;
     const chipTop = chipTopRef.current;
     const chipBottom = chipBottomRef.current;
     const glow = glowRef.current;
@@ -32,9 +34,7 @@ export function HeroCrystalVisual() {
     if (!card || !faceLayer) return;
 
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const isTouchDevice = window.matchMedia("(pointer: coarse)").matches;
-
-    if (prefersReducedMotion || isTouchDevice) {
+    if (prefersReducedMotion) {
       gsap.fromTo(
         card,
         { opacity: 0, y: 25 },
@@ -44,99 +44,144 @@ export function HeroCrystalVisual() {
     }
 
     // -------------------------------------------------------------
-    // INTERACCIÓN FACIAL CON EL MOUSE ("Face & Head Motion Field")
-    // Escucha en todo el viewport para que la mirada y rostro de
-    // la Dama de la Justicia sigan el cursor continuamente
+    // INTERACCIÓN FACIAL CON EL MOUSE ("Face & Gaze Follow Tracking")
+    // Calcula la posición del cursor RELATIVA AL ROSTRO de la estatua
+    // para que la cabeza, mirada y reflejos lumínicos sigan el cursor
     // -------------------------------------------------------------
-    const handleMouseMove = (e: MouseEvent) => {
-      // Normalizado de -1 a 1 basado en la pantalla completa
-      const x = (e.clientX - window.innerWidth / 2) / (window.innerWidth / 2);
-      const y = (e.clientY - window.innerHeight / 2) / (window.innerHeight / 2);
+    let cachedRect: DOMRect | null = null;
+    const updateRect = () => {
+      if (card) cachedRect = card.getBoundingClientRect();
+    };
+    updateRect();
+    window.addEventListener("resize", updateRect);
+    window.addEventListener("scroll", updateRect, { passive: true });
 
-      // 1. Marco exterior 3D
-      gsap.to(card, {
-        rotationY: x * 8,
-        rotationX: -y * 8,
-        x: x * 10,
-        y: y * 8,
-        transformPerspective: 1200,
-        ease: "power2.out",
-        duration: 0.65,
-      });
+    // GSAP QuickTo setters for ultra-smooth 60fps tracking
+    const cardRotY = gsap.quickTo(card, "rotationY", { duration: 0.6, ease: "power2.out" });
+    const cardRotX = gsap.quickTo(card, "rotationX", { duration: 0.6, ease: "power2.out" });
+    const cardMoveX = gsap.quickTo(card, "x", { duration: 0.6, ease: "power2.out" });
+    const cardMoveY = gsap.quickTo(card, "y", { duration: 0.6, ease: "power2.out" });
 
-      // 2. Rostro y busto de la Dama de la Justicia:
-      // Anclado en 48% 22% (zona exacta del rostro y la venda)
-      // para que gire y oriente su mirada hacia el cursor con profundidad 3D
-      gsap.to(faceLayer, {
-        rotationY: x * 16,
-        rotationX: -y * 13,
-        x: x * 22,
-        y: y * 18,
-        scale: 1.09,
-        transformPerspective: 900,
-        ease: "power2.out",
-        duration: 0.55,
-      });
+    const faceRotY = gsap.quickTo(faceLayer, "rotationY", { duration: 0.45, ease: "power2.out" });
+    const faceRotX = gsap.quickTo(faceLayer, "rotationX", { duration: 0.45, ease: "power2.out" });
+    const faceMoveX = gsap.quickTo(faceLayer, "x", { duration: 0.45, ease: "power2.out" });
+    const faceMoveY = gsap.quickTo(faceLayer, "y", { duration: 0.45, ease: "power2.out" });
 
-      // 3. Foco de luz especular dinámica sobre el rostro
+    const chipTopX = chipTop ? gsap.quickTo(chipTop, "x", { duration: 0.75, ease: "power2.out" }) : null;
+    const chipTopY = chipTop ? gsap.quickTo(chipTop, "y", { duration: 0.75, ease: "power2.out" }) : null;
+
+    const chipBottomX = chipBottom ? gsap.quickTo(chipBottom, "x", { duration: 0.85, ease: "power2.out" }) : null;
+    const chipBottomY = chipBottom ? gsap.quickTo(chipBottom, "y", { duration: 0.85, ease: "power2.out" }) : null;
+
+    const glowMoveX = glow ? gsap.quickTo(glow, "x", { duration: 1.1, ease: "power2.out" }) : null;
+    const glowMoveY = glow ? gsap.quickTo(glow, "y", { duration: 1.1, ease: "power2.out" }) : null;
+
+    const handlePointerMove = (e: MouseEvent | PointerEvent) => {
+      if (!cachedRect) updateRect();
+      if (!cachedRect) return;
+
+      // Ubicación exacta del rostro de la Dama de la Justicia dentro del marco
+      const faceCenterX = cachedRect.left + cachedRect.width * 0.48;
+      const faceCenterY = cachedRect.top + cachedRect.height * 0.32;
+
+      // Desplazamiento normalizado desde el centro del rostro
+      // -1 (a la izquierda del rostro) a +1 (a la derecha del rostro)
+      const deltaX = (e.clientX - faceCenterX) / (cachedRect.width * 0.6);
+      const deltaY = (e.clientY - faceCenterY) / (cachedRect.height * 0.55);
+
+      // Limitar suavemente
+      const nx = Math.max(-1.4, Math.min(1.4, deltaX));
+      const ny = Math.max(-1.4, Math.min(1.4, deltaY));
+
+      // 1. Inclinación 3D del marco exterior
+      cardRotY(nx * 8);
+      cardRotX(-ny * 8);
+      cardMoveX(nx * 8);
+      cardMoveY(ny * 6);
+
+      // 2. Movimiento y giro tridimensional del rostro de la Dama de la Justicia
+      // Anclado en su rostro (48% 22%) para orientar su cabeza hacia donde esté el mouse
+      faceRotY(nx * 20);
+      faceRotX(-ny * 16);
+      faceMoveX(nx * 22);
+      faceMoveY(ny * 18);
+
+      // 3. Foco especular dinámico que viaja sobre el rostro de bronce y la venda
       if (spotlight) {
-        gsap.to(spotlight, {
-          x: x * 35,
-          y: y * 30,
-          opacity: 0.55 + Math.abs(x) * 0.35,
+        const lightX = 48 + nx * 26;
+        const lightY = 22 + ny * 22;
+        spotlight.style.background = `radial-gradient(circle 180px at ${lightX}% ${lightY}%, rgba(96, 165, 250, 0.75) 0%, rgba(59, 130, 246, 0.3) 30%, transparent 68%)`;
+      }
+
+      // 4. Destello en la venda / mirada de la justicia
+      if (eyeGlow) {
+        gsap.to(eyeGlow, {
+          x: nx * 14,
+          y: ny * 8,
+          opacity: 0.6 + Math.abs(nx) * 0.4,
+          duration: 0.3,
           ease: "power2.out",
-          duration: 0.7,
         });
       }
 
-      // 4. Chip superior (Expediente Activo) con contra-paralaje
-      if (chipTop) {
-        gsap.to(chipTop, {
-          x: x * -24,
-          y: y * -18,
-          rotationZ: x * -3,
-          ease: "power2.out",
-          duration: 0.85,
-        });
+      // 5. Chips satélite en contra-perspectiva
+      if (chipTopX && chipTopY) {
+        chipTopX(nx * -22);
+        chipTopY(ny * -18);
+      }
+      if (chipBottomX && chipBottomY) {
+        chipBottomX(nx * 24);
+        chipBottomY(ny * 18);
       }
 
-      // 5. Chip inferior (Bóveda AES-256)
-      if (chipBottom) {
-        gsap.to(chipBottom, {
-          x: x * 26,
-          y: y * 20,
-          rotationZ: x * 3,
-          ease: "power2.out",
-          duration: 0.95,
-        });
-      }
-
-      // 6. Halo ambiental de fondo
-      if (glow) {
-        gsap.to(glow, {
-          x: x * 45,
-          y: y * 45,
-          ease: "power2.out",
-          duration: 1.2,
-        });
+      // 6. Halo ambiental
+      if (glowMoveX && glowMoveY) {
+        glowMoveX(nx * 40);
+        glowMoveY(ny * 40);
       }
     };
 
-    const handleMouseLeave = () => {
-      gsap.to([card, faceLayer, spotlight, chipTop, chipBottom, glow], {
+    const handlePointerLeave = () => {
+      gsap.to(card, {
         rotationX: 0,
         rotationY: 0,
-        rotationZ: 0,
         x: 0,
         y: 0,
-        scale: 1,
         ease: "power3.out",
-        duration: 1.2,
+        duration: 0.9,
       });
+
+      gsap.to(faceLayer, {
+        rotationX: 0,
+        rotationY: 0,
+        x: 0,
+        y: 0,
+        ease: "power3.out",
+        duration: 0.9,
+      });
+
+      if (spotlight) {
+        spotlight.style.background = `radial-gradient(circle 180px at 48% 22%, rgba(96, 165, 250, 0.5) 0%, rgba(59, 130, 246, 0.2) 30%, transparent 68%)`;
+      }
+
+      if (eyeGlow) {
+        gsap.to(eyeGlow, { x: 0, y: 0, opacity: 0.4, duration: 0.8 });
+      }
+
+      if (chipTop) {
+        gsap.to(chipTop, { x: 0, y: 0, duration: 0.9, ease: "power3.out" });
+      }
+      if (chipBottom) {
+        gsap.to(chipBottom, { x: 0, y: 0, duration: 0.9, ease: "power3.out" });
+      }
+      if (glow) {
+        gsap.to(glow, { x: 0, y: 0, duration: 1.2, ease: "power3.out" });
+      }
     };
 
-    window.addEventListener("mousemove", handleMouseMove, { passive: true });
-    document.addEventListener("mouseleave", handleMouseLeave);
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("mousemove", handlePointerMove, { passive: true });
+    document.addEventListener("mouseleave", handlePointerLeave);
 
     // Entrada cinematográfica inicial
     gsap.fromTo(
@@ -162,9 +207,12 @@ export function HeroCrystalVisual() {
     }
 
     return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      document.removeEventListener("mouseleave", handleMouseLeave);
-      gsap.killTweensOf([card, faceLayer, spotlight, chipTop, chipBottom, glow]);
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("mousemove", handlePointerMove);
+      window.removeEventListener("resize", updateRect);
+      window.removeEventListener("scroll", updateRect);
+      document.removeEventListener("mouseleave", handlePointerLeave);
+      gsap.killTweensOf([card, faceLayer, chipTop, chipBottom, glow]);
     };
   }, []);
 
@@ -219,8 +267,8 @@ export function HeroCrystalVisual() {
       {/* MARCO ARQUITECTÓNICO DE CRISTAL OSCURO */}
       <div
         ref={cardRef}
-        className="relative z-10 w-full rounded-[32px] bg-gradient-to-b from-[#0F172A] via-[#101828] to-[#0A0F1D] border border-slate-800 shadow-[0_32px_80px_-20px_rgba(15,23,42,0.45)] p-4 sm:p-6 overflow-hidden flex flex-col justify-between text-white"
-        style={{ transformStyle: "preserve-3d" }}
+        className="relative z-10 w-full rounded-[32px] bg-gradient-to-b from-[#0F172A] via-[#101828] to-[#0A0F1D] border border-slate-800 shadow-[0_32px_80px_-20px_rgba(15,23,42,0.45)] p-4 sm:p-6 overflow-hidden flex flex-col justify-between text-white transition-shadow duration-300 hover:shadow-[0_40px_100px_-20px_rgba(49,87,213,0.35)] cursor-pointer"
+        style={{ transformStyle: "preserve-3d", perspective: 1100 }}
       >
         {/* Destello sutil superior */}
         <div className="absolute inset-0 rounded-[32px] bg-gradient-to-br from-white/10 via-transparent to-blue-500/10 pointer-events-none" />
@@ -241,13 +289,13 @@ export function HeroCrystalVisual() {
         </div>
 
         {/* 2. ESCULTURA CON SEGUIMIENTO FACIAL 3D */}
-        <div className="relative my-2 sm:my-3 w-full h-[390px] sm:h-[450px] rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center bg-black">
+        <div className="relative my-2 sm:my-3 w-full h-[390px] sm:h-[450px] rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center bg-black group">
           {/* Capa del rostro animada con rotación y desplazamiento de perspectiva */}
           <div
             ref={faceLayerRef}
-            className="relative w-full h-full"
+            className="relative w-full h-full scale-[1.08] transition-transform duration-75"
             style={{
-              transformOrigin: "48% 22%", // Ubicación exacta del rostro y venda de la estatua
+              transformOrigin: "48% 22%", // Anclado en la frente, rostro y venda de la Dama de la Justicia
               willChange: "transform",
               transformStyle: "preserve-3d",
             }}
@@ -257,14 +305,24 @@ export function HeroCrystalVisual() {
               alt="Dama de la Justicia con la Balanza y la Espada — ALYA LegalTech"
               fill
               priority
-              className="object-cover object-center scale-105 pointer-events-none"
+              className="object-cover object-center pointer-events-none"
               sizes="(max-width: 768px) 100vw, 540px"
             />
 
-            {/* Foco de luz especular interactiva sobre el rostro */}
+            {/* Foco de luz especular interactiva que se desplaza sobre el rostro */}
             <div
               ref={spotlightRef}
-              className="absolute inset-0 pointer-events-none mix-blend-color-dodge opacity-60 bg-[radial-gradient(circle_at_48%_22%,rgba(71,119,245,0.45)_0%,rgba(56,189,248,0.2)_28%,transparent_62%)]"
+              className="absolute inset-0 pointer-events-none mix-blend-color-dodge transition-all duration-100 ease-out"
+              style={{
+                background:
+                  "radial-gradient(circle 180px at 48% 22%, rgba(96, 165, 250, 0.65) 0%, rgba(59, 130, 246, 0.25) 30%, transparent 68%)",
+              }}
+            />
+
+            {/* Resplandor holográfico sutil centrado en la mirada y venda de la justicia */}
+            <div
+              ref={eyeGlowRef}
+              className="absolute top-[18%] left-[42%] w-[80px] h-[30px] rounded-full bg-cyan-400/30 blur-md pointer-events-none mix-blend-screen opacity-40 transition-opacity"
             />
           </div>
 

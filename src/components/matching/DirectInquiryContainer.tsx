@@ -5,7 +5,12 @@ import SwipeDeck from "./SwipeDeck";
 import LawyerListView from "./LawyerListView";
 import CaseDetailModal, { type CaseDraft } from "./CaseDetailModal";
 import type { MatchRecord } from "./SwipeCard";
-import { directMatchWithLawyerAction, toggleFavoriteAction } from "@/actions/cases.actions";
+import {
+  directMatchWithLawyerAction,
+  toggleFavoriteAction,
+  updateCaseStatusAction,
+  type CaseStatus,
+} from "@/actions/cases.actions";
 import {
   Layers,
   List,
@@ -31,6 +36,10 @@ import {
   X,
   Star,
   ExternalLink,
+  PlayCircle,
+  CheckCircle,
+  XCircle,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -75,9 +84,67 @@ export default function DirectInquiryContainer({
   // Mode toggle: 'swipe' | 'list' | 'saved' | 'cases'
   const [viewMode, setViewMode] = useState<"swipe" | "list" | "saved" | "cases">("swipe");
 
+  // Local synchronized cases list
+  const [localCases, setLocalCases] = useState<UserCaseItem[]>(userCases);
+  const [updatingCaseId, setUpdatingCaseId] = useState<string | null>(null);
+
   // Selected case state for clients with multiple cases
-  const initialCase = userCases[0] || null;
+  const initialCase = localCases[0] || null;
   const [selectedCaseId, setSelectedCaseId] = useState<string>(initialCase ? initialCase.id : "new");
+
+  // Active selected case helper
+  const activeCaseItem = localCases.find((c) => c.id === selectedCaseId) || null;
+
+  // Status badge config helper
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "in_progress":
+      case "in_consultation":
+        return {
+          label: "En Proceso",
+          bg: "bg-blue-50 border-blue-200/80 text-blue-700",
+          dot: "bg-blue-600",
+        };
+      case "closed":
+        return {
+          label: "Concluido / Resuelto",
+          bg: "bg-purple-50 border-purple-200/80 text-purple-700",
+          dot: "bg-purple-600",
+        };
+      case "cancelled":
+        return {
+          label: "Cancelado",
+          bg: "bg-slate-100 border-slate-300 text-slate-600",
+          dot: "bg-slate-400",
+        };
+      case "published":
+      case "matching":
+      default:
+        return {
+          label: "Activo / En búsqueda",
+          bg: "bg-emerald-50 border-emerald-200/80 text-emerald-800",
+          dot: "bg-emerald-600 animate-pulse",
+        };
+    }
+  };
+
+  const handleUpdateStatus = async (caseId: string, newStatus: CaseStatus) => {
+    setUpdatingCaseId(caseId);
+    try {
+      const res = await updateCaseStatusAction({ caseId, status: newStatus });
+      if (res.success) {
+        setLocalCases((prev) =>
+          prev.map((c) => (c.id === caseId ? { ...c, status: newStatus } : c))
+        );
+      } else {
+        alert(res.error || "No se pudo actualizar el estado");
+      }
+    } catch (err: any) {
+      alert(err.message || "Error al actualizar estado");
+    } finally {
+      setUpdatingCaseId(null);
+    }
+  };
 
   // Primary filters
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
@@ -222,7 +289,7 @@ export default function DirectInquiryContainer({
       });
       setIsDetailModalOpen(true);
     } else {
-      const found = userCases.find((c) => c.id === caseId);
+      const found = localCases.find((c) => c.id === caseId);
       if (found) {
         setCaseDraft({
           title: found.title,
@@ -375,7 +442,7 @@ export default function DirectInquiryContainer({
           </button>
 
           {/* Option 4: Mis Casos (if user has registered cases) */}
-          {userCases.length > 0 && (
+          {localCases.length > 0 && (
             <button
               type="button"
               role="tab"
@@ -388,7 +455,7 @@ export default function DirectInquiryContainer({
               }`}
             >
               <Briefcase className="w-3.5 h-3.5 text-blue-600" />
-              <span>Mis Casos ({userCases.length})</span>
+              <span>Mis Casos ({localCases.length})</span>
             </button>
           )}
         </div>
@@ -409,14 +476,14 @@ export default function DirectInquiryContainer({
                   Caso activo:
                 </span>
 
-                {userCases.length > 0 ? (
+                {localCases.length > 0 ? (
                   <select
                     value={selectedCaseId}
                     onChange={(e) => handleSelectCase(e.target.value)}
                     aria-label="Seleccionar caso activo"
                     className="rounded-lg border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-bold text-slate-900 focus:bg-white focus:border-blue-500 focus:outline-none cursor-pointer max-w-[220px] truncate shadow-2xs"
                   >
-                    {userCases.map((c) => (
+                    {localCases.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.title} ({c.specialties?.name || "General"})
                       </option>
@@ -439,10 +506,18 @@ export default function DirectInquiryContainer({
                 <span className="hidden md:inline-flex rounded-full bg-slate-100 border border-slate-200 text-slate-700 px-2.5 py-0.5 text-[10px] font-medium">
                   {caseDraft.modality === "virtual" ? "Virtual" : "Presencial"}
                 </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/70 text-emerald-800 px-2 py-0.5 text-[10px] font-bold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                  Activo
-                </span>
+                {/* Dynamic Status Badge for active case */}
+                {(() => {
+                  const badge = getStatusBadge(activeCaseItem?.status || "published");
+                  return (
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${badge.bg}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                      {badge.label}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 
@@ -695,50 +770,102 @@ export default function DirectInquiryContainer({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {userCases.map((c) => (
-              <div
-                key={c.id}
-                className={`flex flex-col justify-between rounded-2xl border p-5 transition-all shadow-2xs ${
-                  c.id === selectedCaseId
-                    ? "border-blue-500 bg-blue-50/40 ring-2 ring-blue-500/20"
-                    : "border-slate-200 bg-white hover:border-blue-400 hover:shadow-md"
-                }`}
-              >
-                <div>
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="rounded-full bg-blue-50 border border-blue-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
-                      {c.specialties?.name || "General"}
-                    </span>
-                    <span className="text-[10px] text-slate-500 uppercase font-semibold">
-                      {c.status}
-                    </span>
-                  </div>
-                  <h3 className="font-bold text-slate-900 text-base line-clamp-1 font-sans">
-                    {c.title}
-                  </h3>
-                  <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                    {c.description}
-                  </p>
-                </div>
+            {localCases.map((c) => {
+              const badge = getStatusBadge(c.status);
+              const isSelected = c.id === selectedCaseId;
+              const isUpdating = updatingCaseId === c.id;
 
-                <div className="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[11px] text-slate-500">
-                    En <strong className="text-slate-900 font-semibold">{c.city}</strong>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleSelectCase(c.id);
-                      setViewMode("swipe");
-                    }}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
-                  >
-                    <span>Ver Abogados</span>
-                    <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
-                  </button>
+              return (
+                <div
+                  key={c.id}
+                  className={`flex flex-col justify-between rounded-2xl border p-5 transition-all shadow-2xs ${
+                    isSelected
+                      ? "border-blue-500 bg-blue-50/40 ring-2 ring-blue-500/20"
+                      : "border-slate-200 bg-white hover:border-blue-400 hover:shadow-md"
+                  }`}
+                >
+                  <div>
+                    {/* Header tags: Specialty & Lifecycle Status Badge */}
+                    <div className="flex items-center justify-between gap-2 mb-2.5">
+                      <span className="rounded-full bg-blue-50 border border-blue-200/70 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+                        {c.specialties?.name || "General"}
+                      </span>
+
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${badge.bg}`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                        {badge.label}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-slate-900 text-base line-clamp-1 font-sans">
+                      {c.title}
+                    </h3>
+                    <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                      {c.description}
+                    </p>
+
+                    {/* Context info: City & Urgency */}
+                    <div className="mt-3 flex items-center gap-2 text-[11px] text-slate-500">
+                      <span>Jurisdicción: <strong className="text-slate-800 font-semibold">{c.city}</strong></span>
+                      <span>•</span>
+                      <span>Modalidad: <strong className="text-slate-800 font-semibold">{c.modality === "virtual" ? "Virtual" : "Presencial"}</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Lifecycle Controls & Actions */}
+                  <div className="mt-4 pt-3.5 border-t border-slate-100 space-y-3">
+                    {/* Status Changer Dropdown/Buttons */}
+                    <div className="flex items-center justify-between gap-2 bg-slate-50 p-2 rounded-xl border border-slate-200/80">
+                      <span className="text-[11px] font-semibold text-slate-500 shrink-0">
+                        Cambiar estado:
+                      </span>
+
+                      {isUpdating ? (
+                        <div className="flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Actualizando...</span>
+                        </div>
+                      ) : (
+                        <select
+                          value={c.status}
+                          disabled={isUpdating}
+                          onChange={(e) => handleUpdateStatus(c.id, e.target.value as CaseStatus)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-800 shadow-2xs focus:border-blue-500 focus:outline-none cursor-pointer"
+                        >
+                          <option value="published">🟢 Activo / Abierto</option>
+                          <option value="in_progress">🔵 En Proceso</option>
+                          <option value="closed">🟣 Concluido / Resuelto</option>
+                          <option value="cancelled">⚪ Cancelado / Desistido</option>
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Primary Card CTA */}
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleSelectCase(c.id);
+                          setViewMode("swipe");
+                        }}
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 cursor-pointer"
+                      >
+                        <span>Emparejar Abogados (Tarjetas)</span>
+                        <ArrowLeft className="w-3.5 h-3.5 rotate-180 text-blue-600" />
+                      </button>
+
+                      {isSelected && (
+                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          Seleccionado
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </main>
       ) : viewMode === "saved" ? (

@@ -27,6 +27,7 @@ interface CompatibleCaseCardProps {
     urgency: string;
     is_confidential: boolean;
     created_at?: string;
+    status?: string;
     specialties?: {
       name: string;
     } | null;
@@ -137,6 +138,21 @@ export default function CompatibleCaseCard({
               <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-mono">
                 <Lock className="w-2.5 h-2.5 text-slate-500" />
                 Confidencial
+              </span>
+            )}
+            {caseItem.status === "in_progress" && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded font-mono font-bold">
+                En Proceso
+              </span>
+            )}
+            {caseItem.status === "closed" && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded font-mono font-bold">
+                Resuelto
+              </span>
+            )}
+            {caseItem.status === "cancelled" && (
+              <span className="inline-flex items-center gap-1 text-[10px] text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded font-mono font-bold">
+                Cancelado
               </span>
             )}
             <span className="text-[10px] font-mono text-slate-600 font-bold uppercase bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">

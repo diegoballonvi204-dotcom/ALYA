@@ -72,6 +72,7 @@ export default async function LawyerDashboardPage({
         urgency,
         is_confidential,
         created_at,
+        status,
         specialties:specialties!cases_specialty_id_fkey (name)
       )
     `)

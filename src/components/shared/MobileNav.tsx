@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Briefcase, Calendar, MessageSquare, LogOut, LogIn, UserPlus, FolderKanban, ShieldCheck } from "lucide-react";
+import { Menu, X, Briefcase, Calendar, MessageSquare, LogOut, LogIn, UserPlus, FolderKanban, ShieldCheck, CreditCard } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 
 interface MobileNavProps {
@@ -85,6 +85,13 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                   Verificaciones
                 </Link>
                 <Link
+                  href="/admin/subscriptions"
+                  onClick={() => setIsOpen(false)}
+                  className="py-2 hover:text-[#2563EB] transition-colors"
+                >
+                  Suscripciones
+                </Link>
+                <Link
                   href="/admin/audit"
                   onClick={() => setIsOpen(false)}
                   className="py-2 hover:text-[#2563EB] transition-colors"
@@ -125,6 +132,14 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                 >
                   <MessageSquare className="w-4 h-4 text-[#2563EB]" />
                   <span>Mensajes</span>
+                </Link>
+                <Link
+                  href="/lawyer/subscription"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2 py-2 hover:text-[#2563EB] transition-colors"
+                >
+                  <CreditCard className="w-4 h-4 text-[#2563EB]" />
+                  <span>Mi Plan</span>
                 </Link>
                 <Link
                   href="/lawyer/verification"
