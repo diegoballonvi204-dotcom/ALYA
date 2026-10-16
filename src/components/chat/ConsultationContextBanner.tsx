@@ -71,7 +71,8 @@ export function ConsultationContextBanner({
     }
   };
 
-  const isVirtual = consultation.modality !== "presencial";
+  const isVirtual =
+    consultation.modality !== "presencial" && consultation.modality !== "in_person";
   const isHeld = consultation.paymentStatus === "held_escrow";
   const isPending =
     !consultation.paymentStatus || consultation.paymentStatus === "pending_payment";

@@ -196,6 +196,7 @@ export async function getConversationDetailsAction(conversationId: string) {
 
   // Si no hay consulta previa creada para este caso, inicializarla con el precio del abogado
   if (!latestConsultation && rawLawyer?.id && rawCase?.user_id) {
+    const autoMeetingRoom = `https://meet.jit.si/alya-legal-${conv.case_id.replace(/-/g, "").slice(0, 8)}-${Date.now().toString().slice(-6)}`;
     if (lawyerConsultationPrice > 0) {
       const { data: createdConsultation } = await supabase
         .from("consultations")
@@ -206,6 +207,7 @@ export async function getConversationDetailsAction(conversationId: string) {
           scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           duration_minutes: 45,
           modality: "virtual",
+          meeting_link: autoMeetingRoom,
           agreed_price: lawyerConsultationPrice,
           status: "requested",
           payment_status: "pending_payment",
@@ -236,6 +238,7 @@ export async function getConversationDetailsAction(conversationId: string) {
           scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
           duration_minutes: 45,
           modality: "virtual",
+          meeting_link: autoMeetingRoom,
           agreed_price: 0,
           status: "confirmed",
           payment_status: "released",
@@ -256,6 +259,16 @@ export async function getConversationDetailsAction(conversationId: string) {
         .single();
       latestConsultation = createdConsultation;
     }
+  }
+
+  // Si existe consulta virtual pero no tiene enlace generado, asignarle uno y persistirlo
+  if (latestConsultation && !latestConsultation.meeting_link && latestConsultation.modality !== "in_person") {
+    const autoLink = `https://meet.jit.si/alya-legal-${latestConsultation.id.replace(/-/g, "").slice(0, 16)}`;
+    await supabase
+      .from("consultations")
+      .update({ meeting_link: autoLink })
+      .eq("id", latestConsultation.id);
+    latestConsultation.meeting_link = autoLink;
   }
 
   let hasReviewed = false;
@@ -302,7 +315,9 @@ export async function getConversationDetailsAction(conversationId: string) {
           durationMinutes: latestConsultation.duration_minutes,
           modality: latestConsultation.modality,
           agreedPrice: Number(latestConsultation.agreed_price),
-          meetingLink: latestConsultation.meeting_link,
+          meetingLink:
+            latestConsultation.meeting_link ||
+            `https://meet.jit.si/alya-legal-${latestConsultation.id.replace(/-/g, "").slice(0, 16)}`,
           paymentStatus: latestConsultation.payment_status || "pending_payment",
           paymentMethod: latestConsultation.payment_method || null,
           voucherUrl: latestConsultation.voucher_url || null,

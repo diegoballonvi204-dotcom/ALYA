@@ -432,14 +432,16 @@ export function LawyerScheduleManager({
                         </p>
                       )}
 
-                      {c.meeting_link && (
+                      {c.modality !== "presencial" && (
                         <div className="mt-2.5 flex flex-wrap items-center gap-2">
                           <button
                             type="button"
                             onClick={() =>
                               setActiveVideoModal({
                                 isOpen: true,
-                                meetingLink: c.meeting_link!,
+                                meetingLink:
+                                  c.meeting_link ||
+                                  `https://meet.jit.si/alya-legal-${c.id.replace(/-/g, "").slice(0, 16)}`,
                                 roomPasscode: c.room_passcode || null,
                                 title: `Consulta: ${c.case_title}`,
                               })
