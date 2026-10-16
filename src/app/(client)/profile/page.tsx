@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import ClientProfileEditor from "@/components/client/ClientProfileEditor";
+import { ClientPrivacySection } from "@/components/profile/ClientPrivacySection";
 import Link from "next/link";
 import { User, ArrowLeft, FolderKanban } from "lucide-react";
 
@@ -29,6 +30,8 @@ export default async function ClientProfilePage() {
   if (profile.role === "lawyer") {
     redirect("/lawyer/profile");
   }
+
+  const fullName = `${profile.first_name || ""} ${profile.last_name || ""}`.trim();
 
   return (
     <div className="w-full max-w-[900px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
@@ -69,6 +72,12 @@ export default async function ClientProfilePage() {
           city: profile.city || "Lima",
           email: user.email || "",
         }}
+      />
+
+      {/* Sección de Cumplimiento Normativo y Derechos ARCO (Ley N.° 29733) */}
+      <ClientPrivacySection
+        userName={fullName || "Cliente ALYA"}
+        userEmail={user.email || ""}
       />
     </div>
   );

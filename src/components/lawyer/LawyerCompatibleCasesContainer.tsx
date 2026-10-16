@@ -112,31 +112,52 @@ export default function LawyerCompatibleCasesContainer({
       setDeck((prev) => prev.slice(1));
       setIsProcessing(true);
 
-      if (current.matchInfo?.id) {
-        try {
-          const res = await lawyerInteractMatchAction(current.matchInfo.id, interested);
+      // Si el abogado da like a la derecha (Postular Interés),
+      // mostramos el modal de conexión bilateral de forma inmediata (0ms de latencia)
+      if (interested) {
+        setMatchedCase({
+          lawyerName: "Justiciable Interesado",
+          lawyerBar: "Identidad Desbloqueada con Éxito",
+          title: current.caseItem.title,
+          conversationId: current.matchInfo?.conversation_id || null,
+          caseId: current.caseItem.id,
+        });
+      }
 
-          if (res?.error === "QUOTA_EXCEEDED") {
-            setQuotaData({
-              currentUsage: (res.quotaInfo as any)?.current_usage || 3,
-              maxQuota: (res.quotaInfo as any)?.max_quota || 3,
-            });
-            setShowUpgradeModal(true);
-          } else if (res?.success && res.isMatched) {
-            setMatchedCase({
-              lawyerName: "Patrocinio Penal Aceptado",
-              lawyerBar: "Conexión Bilateral Confirmada",
-              title: current.caseItem.title,
-              conversationId: res.conversationId,
-              caseId: current.caseItem.id,
-            });
+      try {
+        const res = await lawyerInteractMatchAction({
+          matchId: current.matchInfo?.id,
+          caseId: current.caseItem.id,
+          interested,
+        });
+
+        if (res?.error === "QUOTA_EXCEEDED") {
+          setMatchedCase(null);
+          setQuotaData({
+            currentUsage: (res.quotaInfo as any)?.current_usage || 3,
+            maxQuota: (res.quotaInfo as any)?.max_quota || 3,
+          });
+          setShowUpgradeModal(true);
+        } else if (res?.error) {
+          console.error("Error al registrar interacción del abogado:", res.error);
+          if (interested) {
+            setMatchedCase(null);
           }
-        } catch (err) {
-          console.error("Error al registrar interacción del abogado:", err);
-        } finally {
-          setIsProcessing(false);
+        } else if (res?.success && res.isMatched) {
+          setMatchedCase({
+            lawyerName: "Justiciable Interesado",
+            lawyerBar: "Identidad Desbloqueada con Éxito",
+            title: current.caseItem.title,
+            conversationId: res.conversationId,
+            caseId: current.caseItem.id,
+          });
         }
-      } else {
+      } catch (err) {
+        console.error("Error al registrar interacción del abogado:", err);
+        if (interested) {
+          setMatchedCase(null);
+        }
+      } finally {
         setIsProcessing(false);
       }
     },
@@ -352,6 +373,15 @@ export default function LawyerCompatibleCasesContainer({
                 caseItem={item.caseItem}
                 matchInfo={item.matchInfo}
                 isRadarVip={item.isRadarVip}
+                onMatched={(convId) => {
+                  setMatchedCase({
+                    lawyerName: "Justiciable Interesado",
+                    lawyerBar: "Identidad Desbloqueada con Éxito",
+                    title: item.caseItem.title,
+                    conversationId: convId,
+                    caseId: item.caseItem.id,
+                  });
+                }}
               />
             ))}
           </div>
@@ -386,6 +416,7 @@ export default function LawyerCompatibleCasesContainer({
           lawyerTitle={matchedCase.title}
           conversationId={matchedCase.conversationId}
           caseId={matchedCase.caseId}
+          closeButtonText="Continuar revisando casos compatibles"
         />
       )}
 

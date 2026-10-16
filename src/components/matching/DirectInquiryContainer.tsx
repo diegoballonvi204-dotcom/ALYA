@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowLeft,
+  ArrowRight,
   RotateCcw,
   Check,
   Briefcase,
@@ -190,7 +191,10 @@ export default function DirectInquiryContainer({
   }, [initialLawyers, favoritesSet]);
 
   // Success match toast feedback
-  const [matchSuccessBanner, setMatchSuccessBanner] = useState<string | null>(null);
+  const [matchSuccessBanner, setMatchSuccessBanner] = useState<{
+    text: string;
+    conversationId?: string | null;
+  } | null>(null);
 
   // Unique cities list
   const availableCities = useMemo(() => {
@@ -329,10 +333,18 @@ export default function DirectInquiryContainer({
         });
 
         if (res?.success) {
-          setMatchSuccessBanner(
-            `¡Interés enviado a ${lawyerName}! Se han registrado los detalles de tu consulta para que el profesional revise tu caso.`
-          );
-          setTimeout(() => setMatchSuccessBanner(null), 7000);
+          if (res.isMatched) {
+            setMatchSuccessBanner({
+              text: `¡Interés confirmado con ${lawyerName}! Conexión establecida. Ya puedes acceder para abonar e iniciar la consulta.`,
+              conversationId: res.conversationId,
+            });
+          } else {
+            setMatchSuccessBanner({
+              text: `¡Consulta enviada a ${lawyerName}! Se ha notificado al abogado. En cuanto acepte tu solicitud, recibirás una notificación y alerta en pantalla para ir a la conversación, realizar el abono y comenzar la consulta.`,
+              conversationId: undefined,
+            });
+          }
+          setTimeout(() => setMatchSuccessBanner(null), 15000);
         }
       } catch (err) {
         console.error("Error al enviar consulta directa:", err);
@@ -354,15 +366,28 @@ export default function DirectInquiryContainer({
     <div className="w-full max-w-[1550px] mx-auto px-4 sm:px-8 lg:px-12 py-5 space-y-4 font-sans">
       {/* Success Notification Banner */}
       {matchSuccessBanner && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs font-semibold text-emerald-800 shadow-sm animate-fade-in">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span className="flex-1">{matchSuccessBanner}</span>
-          <button
-            onClick={() => setMatchSuccessBanner(null)}
-            className="text-emerald-700 hover:underline text-[11px] font-bold cursor-pointer"
-          >
-            Entendido
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800 shadow-sm animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-600" />
+            <span className="leading-snug">{matchSuccessBanner.text}</span>
+          </div>
+          <div className="flex items-center gap-3 self-end sm:self-auto shrink-0">
+            {matchSuccessBanner.conversationId && (
+              <Link
+                href={`/chat/${matchSuccessBanner.conversationId}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs transition-colors shadow-xs"
+              >
+                <span>Ir a Mensajes</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
+            <button
+              onClick={() => setMatchSuccessBanner(null)}
+              className="text-emerald-700 hover:underline text-[11px] font-bold cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
         </div>
       )}
 

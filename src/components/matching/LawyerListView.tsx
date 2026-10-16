@@ -51,6 +51,7 @@ export default function LawyerListView({
     bar: string;
     title?: string;
     conversationId?: string | null;
+    consultationPrice?: number | null;
   } | null>(null);
 
   const [interestedMap, setInterestedMap] = useState<Record<string, boolean>>(() => {
@@ -169,6 +170,7 @@ export default function LawyerListView({
           bar: `${lawyer.bar_association} • Reg. ${lawyer.bar_number}`,
           title: lawyer.professional_title,
           conversationId: res.conversationId,
+          consultationPrice: lawyer.consultation_price,
         });
       }
     } catch (err) {
@@ -553,6 +555,8 @@ export default function LawyerListView({
           lawyerTitle={matchedLawyer.title}
           conversationId={matchedLawyer.conversationId}
           caseId={caseId}
+          consultationPrice={matchedLawyer.consultationPrice}
+          isClient={true}
         />
       )}
     </div>

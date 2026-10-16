@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Appointment {
@@ -10,6 +10,7 @@ interface Appointment {
   time: string;
   status: 'confirmed' | 'pending' | 'completed';
   meetingUrl?: string;
+  roomPasscode?: string;
 }
 
 export default function MobileScheduleScreen() {
@@ -18,10 +19,11 @@ export default function MobileScheduleScreen() {
       id: '1',
       lawyerName: 'Dra. María Elena Ramos',
       specialty: 'Derecho Laboral',
-      date: 'Mañana, 30 Sep 2026',
+      date: 'Hoy, Consulta Activa',
       time: '15:30 - 16:15',
       status: 'confirmed',
-      meetingUrl: 'https://meet.google.com/xyz-legalmatch',
+      meetingUrl: 'https://meet.jit.si/alya-legal-demo-room-2026',
+      roomPasscode: '458921',
     },
     {
       id: '2',
@@ -32,6 +34,16 @@ export default function MobileScheduleScreen() {
       status: 'pending',
     }
   ]);
+
+  const handleJoinMeeting = (meetingUrl?: string, passcode?: string) => {
+    if (!meetingUrl) {
+      Alert.alert("Enlace pendiente", "El abogado confirmará el enlace en los próximos minutos.");
+      return;
+    }
+    Linking.openURL(meetingUrl).catch(() => {
+      Alert.alert("Error", "No se pudo abrir la sala de videollamada.");
+    });
+  };
 
   const renderItem = ({ item }: { item: Appointment }) => (
     <View style={styles.card}>
@@ -54,9 +66,13 @@ export default function MobileScheduleScreen() {
       </View>
 
       {item.status === 'confirmed' && (
-        <TouchableOpacity style={styles.joinButton} activeOpacity={0.8}>
+        <TouchableOpacity
+          onPress={() => handleJoinMeeting(item.meetingUrl, item.roomPasscode)}
+          style={styles.joinButton}
+          activeOpacity={0.8}
+        >
           <Ionicons name="videocam-outline" size={18} color="#070D1E" />
-          <Text style={styles.joinButtonText}>Ingresar a Sala Virtual</Text>
+          <Text style={styles.joinButtonText}>Ingresar a Sala Virtual (1-Clic)</Text>
         </TouchableOpacity>
       )}
     </View>

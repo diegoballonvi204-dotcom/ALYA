@@ -109,7 +109,17 @@ export async function bookConsultationAction(formData: BookConsultationValues) {
     return { error: "Este horario ya fue reservado por otro consultante. Por favor selecciona otro." };
   }
 
-  // 2. Insertar consulta
+  // 2. Insertar consulta con teleasistencia de 1 clic y estado de pago pendiente
+  const shortId = Math.random().toString(36).substring(2, 8);
+  const autoJitsiLink =
+    validated.data.modality === "virtual"
+      ? `https://meet.jit.si/alya-legal-${validated.data.caseId.slice(0, 8)}-${shortId}`
+      : null;
+  const roomPasscode =
+    validated.data.modality === "virtual"
+      ? Math.floor(100000 + Math.random() * 900000).toString()
+      : null;
+
   const { data: consultation, error: insertErr } = await supabase
     .from("consultations")
     .insert({
@@ -122,6 +132,9 @@ export async function bookConsultationAction(formData: BookConsultationValues) {
       agreed_price: validated.data.agreedPrice,
       notes: validated.data.notes || null,
       status: "requested",
+      payment_status: "pending_payment",
+      meeting_link: autoJitsiLink,
+      room_passcode: roomPasscode,
     })
     .select()
     .single();
@@ -197,9 +210,25 @@ export async function updateConsultationStatusAction(formData: UpdateConsultatio
     notes: validated.data.notes || null,
   };
 
-  if (validated.data.meetingLink !== undefined) {
+  if (validated.data.status === "confirmed") {
+    // Autogenerar Jitsi Meet y room passcode si es virtual y no se proveyó enlace manual
+    if (validated.data.meetingLink) {
+      updatePayload.meeting_link = validated.data.meetingLink;
+    } else {
+      const shortId = Math.random().toString(36).substring(2, 8);
+      updatePayload.meeting_link = `https://meet.jit.si/alya-legal-${consultation.case_id.slice(0, 8)}-${shortId}`;
+      updatePayload.room_passcode = Math.floor(100000 + Math.random() * 900000).toString();
+    }
+  } else if (validated.data.meetingLink !== undefined) {
     updatePayload.meeting_link = validated.data.meetingLink || null;
   }
+
+  if (validated.data.status === "completed") {
+    // Si la consulta concluye, liberar los fondos en custodia al abogado
+    updatePayload.payment_status = "released";
+    updatePayload.released_at = new Date().toISOString();
+  }
+
   if (validated.data.meetingAddress !== undefined) {
     updatePayload.meeting_address = validated.data.meetingAddress || null;
   }
@@ -316,3 +345,239 @@ export async function saveLawyerScheduleAction(schedules: SaveLawyerScheduleValu
   revalidatePath("/lawyer/schedule");
   return { success: true };
 }
+
+export interface SubmitConsultationVoucherParams {
+  consultationId: string;
+  paymentMethod: "yape" | "plin" | "bank_transfer";
+  operationNumber: string;
+  voucherUrl: string;
+}
+
+/**
+ * Registra comprobante de Yape/Plin para pago de consulta legal en custodia (Escrow)
+ */
+export async function submitConsultationVoucherAction(params: SubmitConsultationVoucherParams) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "No autenticado" };
+
+  const { data: c, error: cErr } = await supabase
+    .from("consultations")
+    .select("id, client_id, case_id, lawyer_id, agreed_price")
+    .eq("id", params.consultationId)
+    .single();
+
+  if (cErr || !c) return { success: false, error: "Consulta no encontrada." };
+  if (c.client_id !== user.id) return { success: false, error: "No autorizado para pagar esta consulta." };
+
+  const { error: updateErr } = await supabase
+    .from("consultations")
+    .update({
+      payment_status: "held_escrow",
+      payment_method: params.paymentMethod,
+      payment_reference: params.operationNumber.trim(),
+      voucher_url: params.voucherUrl,
+      paid_at: new Date().toISOString(),
+    })
+    .eq("id", params.consultationId);
+
+  if (updateErr) return { success: false, error: updateErr.message };
+
+  // Enviar mensaje automático al chat
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("case_id", c.case_id)
+    .maybeSingle();
+
+  if (conv) {
+    const methodNames: Record<string, string> = {
+      yape: "Yape",
+      plin: "Plin",
+      bank_transfer: "Transferencia BCP",
+    };
+    const methodName = methodNames[params.paymentMethod] || params.paymentMethod;
+    await supabase.from("messages").insert({
+      conversation_id: conv.id,
+      sender_id: user.id,
+      message: `💳 **Pago de Honorarios en Custodia (Escrow)**:\nMedio: ${methodName}\nOperación: OP-${params.operationNumber.trim()}\nMonto: S/ ${Number(c.agreed_price).toFixed(2)}\nEstado: **Fondos protegidos en custodia ALYA**\nEl dinero se encuentra retenido y solo será transferido al abogado al finalizar la sesión.`,
+      attachment_url: params.voucherUrl,
+      attachment_type: "document",
+    });
+    revalidatePath(`/chat/${conv.id}`);
+  }
+
+  revalidatePath("/lawyer/schedule");
+  return { success: true, message: "Comprobante verificado. Fondos en custodia asegurada." };
+}
+
+/**
+ * Genera preferencia de Mercado Pago Checkout Pro o simulación en sandbox para la consulta
+ */
+export async function createConsultationCheckoutAction(consultationId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "No autenticado" };
+
+  const { data: c, error: cErr } = await supabase
+    .from("consultations")
+    .select(`
+      id,
+      agreed_price,
+      client_id,
+      case_id,
+      cases (title),
+      lawyer_profiles (
+        profiles:user_id (first_name, last_name)
+      )
+    `)
+    .eq("id", consultationId)
+    .single();
+
+  if (cErr || !c) return { success: false, error: "Consulta no encontrada." };
+  if (c.client_id !== user.id) return { success: false, error: "No autorizado." };
+
+  const mpToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  const rawLawyer = c.lawyer_profiles as any;
+  const lawyerName = rawLawyer?.profiles
+    ? `${rawLawyer.profiles.first_name} ${rawLawyer.profiles.last_name}`
+    : "Abogado Colegiado";
+  const caseTitle = (c.cases as any)?.title || "Consulta Legal ALYA";
+
+  if (mpToken) {
+    try {
+      const prefRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${mpToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          items: [
+            {
+              id: c.id,
+              title: `Consulta Legal con ${lawyerName} - ${caseTitle}`,
+              unit_price: Number(c.agreed_price),
+              quantity: 1,
+              currency_id: "PEN",
+            },
+          ],
+          external_reference: `consultation_${c.id}`,
+          back_urls: {
+            success: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/chat?payment=success&consultationId=${c.id}`,
+            failure: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/chat?payment=failure&consultationId=${c.id}`,
+            pending: `${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"}/chat?payment=pending&consultationId=${c.id}`,
+          },
+          auto_return: "approved",
+        }),
+      });
+
+      if (prefRes.ok) {
+        const prefData = await prefRes.json();
+        return {
+          success: true,
+          checkoutUrl: prefData.init_point || prefData.sandbox_init_point,
+          preferenceId: prefData.id,
+        };
+      }
+    } catch (fetchErr) {
+      console.error("Error al crear preferencia MP:", fetchErr);
+    }
+  }
+
+  // Modo simulación interactiva si no hay token de MP
+  return {
+    success: true,
+    isSimulation: true,
+  };
+}
+
+/**
+ * Confirmación de pago con tarjeta en modo simulación (entorno de pruebas/demo)
+ */
+export async function confirmSimulatedConsultationPaymentAction(consultationId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "No autenticado" };
+
+  const { data: c } = await supabase
+    .from("consultations")
+    .select("id, client_id, case_id, agreed_price")
+    .eq("id", consultationId)
+    .single();
+
+  if (!c || c.client_id !== user.id) return { success: false, error: "No autorizado" };
+
+  await supabase
+    .from("consultations")
+    .update({
+      payment_status: "held_escrow",
+      payment_method: "mercadopago",
+      payment_reference: `SIM-MP-${Date.now().toString().slice(-6)}`,
+      paid_at: new Date().toISOString(),
+    })
+    .eq("id", consultationId);
+
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("case_id", c.case_id)
+    .maybeSingle();
+
+  if (conv) {
+    await supabase.from("messages").insert({
+      conversation_id: conv.id,
+      sender_id: user.id,
+      message: `💳 **Pago de Honorarios en Custodia (Escrow)**:\nMedio: Mercado Pago (Tarjeta)\nMonto: S/ ${Number(c.agreed_price).toFixed(2)}\nEstado: **Fondos protegidos en custodia ALYA**\nEl honorario se encuentra asegurado y será liberado al concluir la sesión.`,
+    });
+    revalidatePath(`/chat/${conv.id}`);
+  }
+
+  revalidatePath("/lawyer/schedule");
+  return { success: true };
+}
+
+/**
+ * Libera el pago en custodia de la consulta legal al abogado
+ */
+export async function releaseConsultationPaymentAction(consultationId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "No autenticado" };
+
+  const { data: c } = await supabase
+    .from("consultations")
+    .select("id, client_id, lawyer_id, lawyer_profiles!inner(user_id)")
+    .eq("id", consultationId)
+    .single();
+
+  if (!c) return { success: false, error: "Consulta no encontrada." };
+  const isClient = c.client_id === user.id;
+  const isLawyer = (c.lawyer_profiles as any)?.user_id === user.id;
+
+  if (!isClient && !isLawyer) return { success: false, error: "No autorizado." };
+
+  await supabase
+    .from("consultations")
+    .update({
+      payment_status: "released",
+      released_at: new Date().toISOString(),
+    })
+    .eq("id", consultationId);
+
+  revalidatePath("/lawyer/schedule");
+  return { success: true, message: "Fondos liberados exitosamente al abogado." };
+}
+

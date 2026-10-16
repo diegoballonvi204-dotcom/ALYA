@@ -41,12 +41,14 @@ interface CompatibleCaseCardProps {
     conversation_id?: string | null;
   } | null;
   isRadarVip?: boolean;
+  onMatched?: (conversationId: string | null) => void;
 }
 
 export default function CompatibleCaseCard({
   caseItem,
   matchInfo,
   isRadarVip = false,
+  onMatched,
 }: CompatibleCaseCardProps) {
   const [lawyerInterested, setLawyerInterested] = useState(
     matchInfo?.lawyer_interest || false
@@ -62,12 +64,20 @@ export default function CompatibleCaseCard({
   const [aiBrief, setAiBrief] = useState<LawyerAIBriefResult | null>(null);
   const [isBriefLocked, setIsBriefLocked] = useState(false);
 
+  const [matchedConvId, setMatchedConvId] = useState<string | null>(
+    matchInfo?.conversation_id || null
+  );
+
   const handleInterest = async () => {
-    if (!matchInfo?.id) return;
     setLoading(true);
 
     try {
-      const res = await lawyerInteractMatchAction(matchInfo.id, true);
+      const res = await lawyerInteractMatchAction({
+        matchId: matchInfo?.id,
+        caseId: caseItem.id,
+        interested: true,
+      });
+
       if (res?.error === "QUOTA_EXCEEDED") {
         setQuotaData({
           currentUsage: (res.quotaInfo as any)?.current_usage || 3,
@@ -78,6 +88,10 @@ export default function CompatibleCaseCard({
         setLawyerInterested(true);
         if (res.isMatched) {
           setIsMatched(true);
+          if (res.conversationId) {
+            setMatchedConvId(res.conversationId);
+          }
+          onMatched?.(res.conversationId || null);
         }
       }
     } catch (err) {
@@ -208,11 +222,11 @@ export default function CompatibleCaseCard({
 
           {isMatched ? (
             <Link
-              href={matchInfo?.conversation_id ? `/chat/${matchInfo.conversation_id}` : "/lawyer/dashboard"}
+              href={matchedConvId ? `/chat/${matchedConvId}` : "/chat"}
               className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2 text-xs font-bold text-emerald-800 hover:bg-emerald-100 transition-all shadow-xs"
             >
               <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-              ¡Match Bilateral!
+              <span>Entrar al Chat (Match)</span>
             </Link>
           ) : lawyerInterested ? (
             <span className="inline-flex items-center gap-1 rounded-xl border border-blue-200 bg-blue-50 px-3.5 py-2 text-xs font-bold text-blue-700">
@@ -221,9 +235,9 @@ export default function CompatibleCaseCard({
           ) : (
             <button
               type="button"
-              disabled={loading || !matchInfo?.id}
+              disabled={loading}
               onClick={handleInterest}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] px-4 py-2 text-xs font-bold text-white transition-all shadow-sm disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] px-4 py-2 text-xs font-bold text-white transition-all shadow-sm disabled:opacity-50 cursor-pointer"
             >
               <Heart className="w-3.5 h-3.5 fill-current text-blue-400" />
               {loading ? "Registrando..." : "Me Interesa"}

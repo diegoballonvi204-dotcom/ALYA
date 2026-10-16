@@ -100,6 +100,45 @@ export async function POST(req: NextRequest) {
             const payData = await payRes.json();
             paymentStatus = payData.status;
             transactionAmount = payData.transaction_amount;
+
+            // Manejo de pago de consulta legal en custodia (Escrow)
+            const externalRef = payData.external_reference;
+            if (externalRef && externalRef.startsWith("consultation_")) {
+              const consultationId = externalRef.replace("consultation_", "");
+              if (paymentStatus === "approved") {
+                await supabase
+                  .from("consultations")
+                  .update({
+                    payment_status: "held_escrow",
+                    payment_method: "mercadopago",
+                    payment_reference: resourceId.toString(),
+                    paid_at: new Date().toISOString(),
+                  })
+                  .eq("id", consultationId);
+
+                const { data: c } = await supabase
+                  .from("consultations")
+                  .select("case_id, agreed_price, client_id")
+                  .eq("id", consultationId)
+                  .single();
+
+                if (c) {
+                  const { data: conv } = await supabase
+                    .from("conversations")
+                    .select("id")
+                    .eq("case_id", c.case_id)
+                    .maybeSingle();
+
+                  if (conv) {
+                    await supabase.from("messages").insert({
+                      conversation_id: conv.id,
+                      sender_id: c.client_id,
+                      message: `💳 **Pago de Honorarios Confirmado (Escrow)**:\nMedio: Mercado Pago (Pago ID: ${resourceId})\nMonto: S/ ${Number(c.agreed_price).toFixed(2)}\nEstado: **Fondos en custodia garantizada por ALYA**\nLa sala de videollamada y los enlaces se encuentran 100% habilitados.`,
+                    });
+                  }
+                }
+              }
+            }
           }
         } catch (payErr) {
           console.error("Error al consultar pago en Mercado Pago:", payErr);
@@ -107,7 +146,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (paymentStatus === "approved") {
-        // Idempotencia: Verificar si el pago ya fue registrado
+        // Idempotencia: Verificar si el pago de suscripción ya fue registrado
         const { data: existingInv } = await supabase
           .from("subscription_invoices")
           .select("id")
@@ -115,7 +154,7 @@ export async function POST(req: NextRequest) {
           .maybeSingle();
 
         if (!existingInv) {
-          console.log(`[Mercado Pago] Pago ${resourceId} registrado exitosamente.`);
+          console.log(`[Mercado Pago] Pago ${resourceId} procesado exitosamente.`);
         }
       }
     }

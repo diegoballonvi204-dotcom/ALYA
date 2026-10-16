@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageSquare, ShieldCheck, X, CheckCircle2 } from "lucide-react";
+import { MessageSquare, ShieldCheck, X, CheckCircle2, Loader2, CreditCard } from "lucide-react";
 import Link from "next/link";
 
 interface MatchModalProps {
@@ -12,6 +12,9 @@ interface MatchModalProps {
   lawyerTitle?: string;
   conversationId?: string | null;
   caseId: string;
+  closeButtonText?: string;
+  consultationPrice?: number | null;
+  isClient?: boolean;
 }
 
 export default function MatchModal({
@@ -22,6 +25,9 @@ export default function MatchModal({
   lawyerTitle,
   conversationId,
   caseId,
+  closeButtonText = "Continuar revisando",
+  consultationPrice,
+  isClient = false,
 }: MatchModalProps) {
   if (!isOpen) return null;
 
@@ -80,6 +86,20 @@ export default function MatchModal({
             {lawyerTitle && (
               <p className="text-xs text-slate-700 line-clamp-1">{lawyerTitle}</p>
             )}
+
+            {isClient && consultationPrice !== undefined && consultationPrice !== null && (
+              <div className="pt-2 border-t border-[#E6EAF0] flex items-center justify-between text-xs text-slate-700">
+                <span className="text-slate-500">Honorario de Consulta:</span>
+                <span className={`font-bold font-mono px-2 py-0.5 rounded-md text-xs ${
+                  Number(consultationPrice) === 0
+                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                    : "bg-amber-50 text-amber-900 border border-amber-200"
+                }`}>
+                  {Number(consultationPrice) === 0 ? "Gratis" : `S/ ${Number(consultationPrice).toFixed(2)}`}
+                </span>
+              </div>
+            )}
+
             <div className="pt-2 border-t border-[#E6EAF0] flex items-center gap-1.5 text-[10px] text-[#667085]">
               <span>🔒 Cifrado simétrico AES-256</span>
               <span>•</span>
@@ -88,20 +108,41 @@ export default function MatchModal({
           </div>
 
           <div className="space-y-2.5">
-            <Link
-              href={conversationId ? `/chat/${conversationId}` : `/cases/${caseId}`}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#101828] hover:bg-[#1E293B] py-3 text-sm font-bold text-white transition-all shadow-md cursor-pointer"
-            >
-              <MessageSquare className="w-4 h-4 text-blue-400" />
-              <span>Entrar a Coordinación Rápida & Chat Cifrado</span>
-            </Link>
+            {conversationId ? (
+              <Link
+                href={`/chat/${conversationId}`}
+                onClick={onClose}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#101828] hover:bg-[#1E293B] py-3 text-sm font-bold text-white transition-all shadow-md cursor-pointer animate-fade-in"
+              >
+                {isClient && consultationPrice && Number(consultationPrice) > 0 ? (
+                  <>
+                    <CreditCard className="w-4 h-4 text-amber-400" />
+                    <span>Abonar S/ {Number(consultationPrice).toFixed(2)} e Iniciar Chat</span>
+                  </>
+                ) : (
+                  <>
+                    <MessageSquare className="w-4 h-4 text-blue-400" />
+                    <span>
+                      {isClient && Number(consultationPrice) === 0
+                        ? "Entrar a Coordinación Rápida & Chat (Gratis)"
+                        : "Entrar a Coordinación Rápida & Chat Cifrado"}
+                    </span>
+                  </>
+                )}
+              </Link>
+            ) : (
+              <div className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-slate-800 py-3 text-sm font-medium text-slate-300">
+                <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                <span>Activando canal seguro cifrado...</span>
+              </div>
+            )}
 
             <button
               type="button"
               onClick={onClose}
               className="w-full rounded-xl border border-[#E6EAF0] bg-white py-2.5 text-xs font-semibold text-[#667085] hover:bg-[#F7F8FC] hover:text-[#101828] transition-colors cursor-pointer"
             >
-              Continuar revisando abogados
+              {closeButtonText}
             </button>
           </div>
         </motion.div>

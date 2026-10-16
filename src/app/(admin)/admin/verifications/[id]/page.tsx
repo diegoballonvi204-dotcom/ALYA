@@ -75,8 +75,8 @@ export default async function VerificationDetailPage({
     }
   }
 
-  // Link de búsqueda oficial CAL
-  const calLookupUrl = `https://portal.cal.org.pe/consultas/abogados-colegiados`;
+  // Link de búsqueda oficial CAL (Consulta de Habilidad 2026)
+  const calLookupUrl = `https://servicioscal.org.pe/consulta_habilidad/`;
 
   return (
     <div className="space-y-6">
@@ -162,19 +162,22 @@ export default async function VerificationDetailPage({
         <div className="flex items-center gap-2.5">
           <ExternalLink className="w-4 h-4 text-blue-600 shrink-0" />
           <span>
-            <strong>Validación en Padrón Oficial:</strong> Coteja la matrícula{" "}
-            <strong className="text-blue-900 font-mono">{lawyer.bar_number}</strong> para
+            <strong>Validación en Padrón Oficial CAL:</strong> Coteja por matrícula{" "}
+            <strong className="text-blue-900 font-mono bg-blue-100/80 px-1.5 py-0.5 rounded border border-blue-200">{lawyer.bar_number}</strong> o por nombres (<em>{profile.first_name} {profile.last_name}</em>) para
             confirmar su condición de <em>"Activo y Habilitado"</em>.
           </span>
         </div>
-        <a
-          href={calLookupUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="rounded-xl bg-[#0F172A] hover:bg-[#1E293B] px-4 py-2 text-xs font-bold text-white transition-colors shrink-0 shadow-sm"
-        >
-          Consultar Padrón CAL ↗
-        </a>
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={calLookupUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-xl bg-[#0F172A] hover:bg-[#1E293B] px-4 py-2 text-xs font-bold text-white transition-colors shrink-0 shadow-sm inline-flex items-center gap-1.5"
+          >
+            <span>Consultar Padrón CAL</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
 
       {/* Observation Notice if any */}

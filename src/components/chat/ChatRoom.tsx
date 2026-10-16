@@ -14,15 +14,29 @@ import {
   Loader2,
   File,
   Star,
+  Video,
+  CreditCard,
+  Scale,
+  Lock,
+  Clock,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   sendMessageAction,
   markMessagesAsReadAction,
 } from "@/actions/chat.actions";
+import { getCaseFeeAgreementsAction } from "@/actions/agreements.actions";
 import { CaseDocumentsDrawer } from "./CaseDocumentsDrawer";
 import { ScheduleConsultationModal } from "./ScheduleConsultationModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
+import {
+  ConsultationContextBanner,
+  ConsultationContextData,
+} from "./ConsultationContextBanner";
+import { ConsultationPaymentModal } from "./ConsultationPaymentModal";
+import { JitsiVideoModal } from "./JitsiVideoModal";
+import { CreateFeeAgreementModal } from "./CreateFeeAgreementModal";
+import { FeeAgreementCard } from "./FeeAgreementCard";
 
 interface MessageItem {
   id: string;
@@ -69,11 +83,7 @@ interface ChatRoomProps {
     ratingAverage: number | null;
     verificationStatus: string | null;
   };
-  consultation?: {
-    id: string;
-    status: string;
-    hasReviewed: boolean;
-  } | null;
+  consultation?: ConsultationContextData | null;
   initialMessages: MessageItem[];
 }
 
@@ -93,9 +103,42 @@ export function ChatRoom({
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+  const [isAgreementModalOpen, setIsAgreementModalOpen] = useState(false);
+  const [agreements, setAgreements] = useState<any[]>([]);
+  const [consultationState, setConsultationState] = useState<ConsultationContextData | null>(
+    consultation || null
+  );
   const [hasReviewedState, setHasReviewedState] = useState(
     consultation?.hasReviewed || false
   );
+
+  // Determinar si el justiciable debe abonar honorarios antes de iniciar la interacción
+  const agreedPrice = Number(consultationState?.agreedPrice ?? counterpart.consultationPrice ?? 0);
+  const isPaidOrFree =
+    agreedPrice === 0 ||
+    consultationState?.paymentStatus === "held_escrow" ||
+    consultationState?.paymentStatus === "released";
+  const requiresClientPayment = isClient && !isPaidOrFree;
+
+  // Apertura automática del modal de pago si es la primera interacción y requiere pago
+  useEffect(() => {
+    if (requiresClientPayment && consultationState?.id) {
+      setIsPaymentOpen(true);
+    }
+  }, [requiresClientPayment, consultationState?.id]);
+
+  const loadAgreements = async () => {
+    const res = await getCaseFeeAgreementsAction(caseData.id);
+    if (res.agreements) {
+      setAgreements(res.agreements);
+    }
+  };
+
+  useEffect(() => {
+    loadAgreements();
+  }, [caseData.id]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -296,8 +339,21 @@ export function ChatRoom({
             <span className="hidden sm:inline">Bóveda Documental</span>
           </button>
 
-          {/* Agendar Cita (Disponible para el cliente) */}
-          {isClient && counterpart.lawyerProfileId && (
+          {/* Videoconsulta Rápida (Si los fondos están en custodia y es virtual) */}
+          {consultationState &&
+            consultationState.paymentStatus === "held_escrow" &&
+            consultationState.modality !== "presencial" && (
+              <button
+                onClick={() => setIsVideoOpen(true)}
+                className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
+              >
+                <Video className="w-4 h-4" />
+                <span className="hidden sm:inline">Videoconsulta</span>
+              </button>
+            )}
+
+          {/* Agendar Cita (Disponible para el cliente si no hay cita pendiente o confirmada) */}
+          {isClient && counterpart.lawyerProfileId && (!consultationState || consultationState.status === "cancelled") && (
             <button
               onClick={() => setIsScheduleOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
@@ -307,8 +363,20 @@ export function ChatRoom({
             </button>
           )}
 
+          {/* Emitir Convenio de Honorarios (Disponible para el Abogado) */}
+          {!isClient && (
+            <button
+              onClick={() => setIsAgreementModalOpen(true)}
+              className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
+              title="Emitir Hoja de Encargo / Convenio (Art. 1764 C.C.)"
+            >
+              <Scale className="w-4 h-4 text-amber-400" />
+              <span className="hidden sm:inline">Convenio</span>
+            </button>
+          )}
+
           {/* Calificar Consulta */}
-          {isClient && consultation && !hasReviewedState && counterpart.lawyerProfileId && (
+          {isClient && consultationState && consultationState.status === "completed" && !hasReviewedState && counterpart.lawyerProfileId && (
             <button
               onClick={() => setIsReviewOpen(true)}
               className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200 text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs"
@@ -320,7 +388,32 @@ export function ChatRoom({
         </div>
       </header>
 
-      {/* 2. Banner de Seguridad Ley N.° 29733 */}
+      {/* 2. Convenios de Honorarios Activos (Art. 1764 C.C.) */}
+      {agreements.length > 0 && (
+        <div className="px-6 py-2.5 bg-slate-100/70 border-b border-slate-200 space-y-2">
+          {agreements.map((agreement) => (
+            <FeeAgreementCard
+              key={agreement.id}
+              agreement={agreement}
+              isClient={isClient}
+              onRefresh={loadAgreements}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 3. Banner de Contexto de Consulta Legal (Custodia Escrow + Videoconsulta) */}
+      {consultationState && (
+        <ConsultationContextBanner
+          consultation={consultationState}
+          isClient={isClient}
+          onOpenPayment={() => setIsPaymentOpen(true)}
+          onOpenVideo={() => setIsVideoOpen(true)}
+          onOpenReview={() => setIsReviewOpen(true)}
+        />
+      )}
+
+      {/* 4. Banner de Seguridad Ley N.° 29733 */}
       <div className="py-2 px-4 bg-blue-50/40 border-b border-blue-100 flex items-center justify-center gap-2 text-[11px] text-slate-600 font-medium">
         <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-[#2563EB]" />
         <span>
@@ -419,63 +512,102 @@ export function ChatRoom({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. Barra Inferior de Entrada */}
-      <footer className="p-4 border-t border-slate-200 bg-white">
-        <form
-          onSubmit={handleSendMessage}
-          className="flex items-end gap-3 max-w-4xl mx-auto"
-        >
-          {/* File Upload Trigger */}
-          <input
-            ref={fileInputRef}
-            type="file"
-            className="hidden"
-            onChange={handleFileUpload}
-            disabled={isUploading}
-            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-          />
-
-          <button
-            type="button"
-            disabled={isUploading}
-            onClick={() => fileInputRef.current?.click()}
-            className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-[#2563EB] border border-slate-200 transition-colors shrink-0 disabled:opacity-50"
-            title="Adjuntar documento al chat"
-          >
-            {isUploading ? (
-              <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
-            ) : (
-              <Paperclip className="w-5 h-5" />
-            )}
-          </button>
-
-          {/* Text Area */}
-          <div className="flex-1 relative rounded-xl bg-slate-50 border border-slate-200 focus-within:border-[#2563EB] focus-within:bg-white transition-colors">
-            <textarea
-              rows={1}
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Escribe un mensaje seguro... (Shift+Enter para salto de línea)"
-              className="w-full px-4 py-3 bg-transparent text-xs text-[#0F172A] placeholder-slate-400 resize-none focus:outline-hidden max-h-32"
-            />
+      {/* 4. Barra Inferior de Entrada o Bloqueo por Abono Requerido */}
+      {requiresClientPayment ? (
+        <footer className="border-t border-amber-200 bg-linear-to-r from-amber-50 to-orange-50/50 p-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-300 shadow-2xs">
+                <Lock className="w-5 h-5 text-amber-700" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900 font-serif">
+                  Abono de honorarios requerido para iniciar la conversación
+                </h4>
+                <p className="text-[11px] text-slate-600">
+                  El abogado ha fijado una consulta de <strong>S/ {agreedPrice.toFixed(2)}</strong>. Tu pago queda protegido en custodia Escrow ALYA hasta que concluya la atención.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsPaymentOpen(true)}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer shrink-0"
+            >
+              <CreditCard className="w-4 h-4 text-blue-400" />
+              <span>Abonar S/ {agreedPrice.toFixed(2)}</span>
+            </button>
           </div>
+        </footer>
+      ) : (
+        <>
+          {!isClient && !isPaidOrFree && (
+            <div className="py-2 px-4 bg-amber-50 border-t border-amber-200 flex items-center justify-center gap-2 text-xs text-amber-800 font-medium">
+              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>
+                Esperando que el cliente complete el abono de honorarios (S/ {agreedPrice.toFixed(2)}) en custodia ALYA para iniciar la atención.
+              </span>
+            </div>
+          )}
 
-          {/* Send Button */}
-          <button
-            type="submit"
-            disabled={!inputMessage.trim() || isSending}
-            className="p-3 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
-            title="Enviar mensaje"
-          >
-            {isSending ? (
-              <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
-            ) : (
-              <Send className="w-5 h-5 text-blue-400" />
-            )}
-          </button>
-        </form>
-      </footer>
+          <footer className="p-4 border-t border-slate-200 bg-white">
+            <form
+              onSubmit={handleSendMessage}
+              className="flex items-end gap-3 max-w-4xl mx-auto"
+            >
+              {/* File Upload Trigger */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileUpload}
+                disabled={isUploading}
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              />
+
+              <button
+                type="button"
+                disabled={isUploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="p-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 hover:text-[#2563EB] border border-slate-200 transition-colors shrink-0 disabled:opacity-50"
+                title="Adjuntar documento al chat"
+              >
+                {isUploading ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-[#2563EB]" />
+                ) : (
+                  <Paperclip className="w-5 h-5" />
+                )}
+              </button>
+
+              {/* Text Area */}
+              <div className="flex-1 relative rounded-xl bg-slate-50 border border-slate-200 focus-within:border-[#2563EB] focus-within:bg-white transition-colors">
+                <textarea
+                  rows={1}
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Escribe un mensaje seguro... (Shift+Enter para salto de línea)"
+                  className="w-full px-4 py-3 bg-transparent text-xs text-[#0F172A] placeholder-slate-400 resize-none focus:outline-hidden max-h-32"
+                />
+              </div>
+
+              {/* Send Button */}
+              <button
+                type="submit"
+                disabled={!inputMessage.trim() || isSending}
+                className="p-3 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold transition-all shadow-xs disabled:opacity-40 disabled:cursor-not-allowed shrink-0 cursor-pointer"
+                title="Enviar mensaje"
+              >
+                {isSending ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-blue-400" />
+                ) : (
+                  <Send className="w-5 h-5 text-blue-400" />
+                )}
+              </button>
+            </form>
+          </footer>
+        </>
+      )}
 
       {/* Drawers y Modales */}
       <CaseDocumentsDrawer
@@ -497,11 +629,11 @@ export function ChatRoom({
         />
       )}
 
-      {isClient && consultation && counterpart.lawyerProfileId && (
+      {isClient && consultationState && counterpart.lawyerProfileId && (
         <ReviewModal
           isOpen={isReviewOpen}
           onClose={() => setIsReviewOpen(false)}
-          consultationId={consultation.id}
+          consultationId={consultationState.id}
           lawyerId={counterpart.lawyerProfileId}
           caseId={caseData.id}
           lawyerName={counterpartFullName}
@@ -509,6 +641,50 @@ export function ChatRoom({
             setHasReviewedState(true);
             setIsReviewOpen(false);
           }}
+        />
+      )}
+
+      {/* Modal de Pago de Consulta en Custodia (Escrow) */}
+      {isClient && consultationState && (
+        <ConsultationPaymentModal
+          isOpen={isPaymentOpen}
+          onClose={() => setIsPaymentOpen(false)}
+          consultationId={consultationState.id}
+          agreedPrice={consultationState.agreedPrice || counterpart.consultationPrice || 150}
+          lawyerName={counterpartFullName}
+          onPaymentSuccess={(status?: string) => {
+            setConsultationState((prev) =>
+              prev ? { ...prev, paymentStatus: status || "held_escrow" } : null
+            );
+          }}
+        />
+      )}
+
+      {/* Modal de Videoconsulta Integrada Jitsi Meet */}
+      {consultationState && consultationState.meetingLink && (
+        <JitsiVideoModal
+          isOpen={isVideoOpen}
+          onClose={() => setIsVideoOpen(false)}
+          meetingLink={consultationState.meetingLink}
+          roomPasscode={consultationState.roomPasscode || null}
+          consultationTitle={`Consulta: ${caseData.title}`}
+          participantName={
+            isClient
+              ? `Cliente (${currentUser.role})`
+              : `Abg. ${counterpart.firstName || ""}`
+          }
+        />
+      )}
+
+      {/* Modal de Emisión de Hoja de Encargo / Convenio de Honorarios (Abogado) */}
+      {!isClient && (
+        <CreateFeeAgreementModal
+          isOpen={isAgreementModalOpen}
+          onClose={() => setIsAgreementModalOpen(false)}
+          caseId={caseData.id}
+          caseTitle={caseData.title}
+          conversationId={conversation.id}
+          onAgreementCreated={loadAgreements}
         />
       )}
     </div>

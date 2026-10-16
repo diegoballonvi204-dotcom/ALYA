@@ -180,19 +180,83 @@ export async function interactMatchAction(matchId: string, interested: boolean) 
     return { error: error.message };
   }
 
-  const isMatched = updatedMatch.status === "matched" || (updatedMatch.user_interest && updatedMatch.lawyer_interest);
+  const isMatched =
+    updatedMatch.status === "matched" ||
+    (Boolean(updatedMatch.user_interest) && Boolean(updatedMatch.lawyer_interest));
 
-  revalidatePath(`/cases/${updatedMatch.case_id}/match`);
-  revalidatePath("/dashboard");
+  let conversationId: string | null = null;
+  if (isMatched) {
+    const rawConv = updatedMatch.conversations;
+    const directConvId = Array.isArray(rawConv) ? rawConv[0]?.id : (rawConv as any)?.id;
+
+    if (directConvId) {
+      conversationId = directConvId;
+    } else {
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("match_id", matchId)
+        .maybeSingle();
+
+      if (conv?.id) {
+        conversationId = conv.id;
+      } else {
+        const { data: createdConv } = await supabase
+          .from("conversations")
+          .insert({
+            match_id: matchId,
+            case_id: updatedMatch.case_id,
+            is_active: true,
+          })
+          .select("id")
+          .single();
+        conversationId = createdConv?.id || null;
+      }
+    }
+
+    if (conversationId) {
+      const targetConvId = conversationId;
+      try {
+        const { data: existingMsgs } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("conversation_id", targetConvId)
+          .limit(1);
+
+        if (!existingMsgs || existingMsgs.length === 0) {
+          await supabase.from("messages").insert({
+            conversation_id: targetConvId,
+            sender_id: user.id,
+            message:
+              "🎉 ¡Conexión bilateral establecida! Ambas partes han confirmado su interés mutuo en este caso legal. Ya pueden comunicarse y coordinar la atención.",
+          });
+        }
+      } catch (msgErr) {
+        console.error("Error al registrar mensaje inaugural:", msgErr);
+      }
+    }
+  }
+
+  revalidatePath("/chat");
+  if (conversationId) revalidatePath(`/chat/${conversationId}`);
 
   return {
     success: true,
     isMatched,
-    conversationId: (updatedMatch.conversations as any)?.id || null,
+    conversationId,
   };
 }
 
-export async function lawyerInteractMatchAction(matchId: string, interested: boolean) {
+export async function lawyerInteractMatchAction(
+  matchIdOrOptions:
+    | string
+    | {
+        matchId?: string | null;
+        caseId?: string;
+        interested?: boolean;
+      },
+  maybeInterested?: boolean
+) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -202,63 +266,229 @@ export async function lawyerInteractMatchAction(matchId: string, interested: boo
     return { error: "No autenticado" };
   }
 
-  const updatePayload: {
-    lawyer_interest: boolean;
-    lawyer_interacted_at: string;
-    status?: "discarded" | "pending" | "lawyer_interested" | "matched";
-  } = {
-    lawyer_interest: interested,
-    lawyer_interacted_at: new Date().toISOString(),
-  };
+  let matchId: string | undefined;
+  let caseId: string | undefined;
+  let interested: boolean;
 
-  if (!interested) {
-    updatePayload.status = "discarded";
+  if (typeof matchIdOrOptions === "object" && matchIdOrOptions !== null) {
+    matchId = matchIdOrOptions.matchId || undefined;
+    caseId = matchIdOrOptions.caseId;
+    interested = matchIdOrOptions.interested ?? true;
+  } else {
+    matchId = matchIdOrOptions;
+    interested = Boolean(maybeInterested);
   }
 
-  // Si el abogado muestra interés, validar y consumir cuota de suscripción
+  // 1. Obtener perfil de abogado
+  const { data: lawyerProfile } = await supabase
+    .from("lawyer_profiles")
+    .select("id, consultation_price, profiles(first_name, last_name)")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!lawyerProfile) {
+    return { error: "Perfil de abogado no encontrado" };
+  }
+
+  // 2. Si el abogado muestra interés, validar y consumir cuota de suscripción
   if (interested) {
-    const { data: lawyerProfile } = await supabase
-      .from("lawyer_profiles")
-      .select("id")
-      .eq("user_id", user.id)
+    const { data: quotaResult, error: quotaErr } = await supabase.rpc(
+      "consume_lawyer_match_quota",
+      { p_lawyer_id: lawyerProfile.id }
+    );
+
+    if (quotaErr) {
+      console.error("Error al validar cuota de match:", quotaErr);
+    } else if (quotaResult && !(quotaResult as any).allowed) {
+      return {
+        error: "QUOTA_EXCEEDED",
+        quotaInfo: quotaResult,
+      };
+    }
+  }
+
+  // 3. Buscar si ya existe el registro en matches
+  let targetMatch: any = null;
+
+  if (matchId) {
+    const { data: existing } = await supabase
+      .from("matches")
+      .select("id, status, user_interest, lawyer_interest, case_id, conversations(id)")
+      .eq("id", matchId)
       .maybeSingle();
+    targetMatch = existing;
+  }
 
-    if (lawyerProfile) {
-      const { data: quotaResult, error: quotaErr } = await supabase.rpc(
-        "consume_lawyer_match_quota",
-        { p_lawyer_id: lawyerProfile.id }
-      );
+  if (!targetMatch && caseId) {
+    const { data: existingByCase } = await supabase
+      .from("matches")
+      .select("id, status, user_interest, lawyer_interest, case_id, conversations(id)")
+      .eq("case_id", caseId)
+      .eq("lawyer_id", lawyerProfile.id)
+      .maybeSingle();
+    targetMatch = existingByCase;
+  }
 
-      if (quotaErr) {
-        console.error("Error al validar cuota de match:", quotaErr);
-      } else if (quotaResult && !(quotaResult as any).allowed) {
-        return {
-          error: "QUOTA_EXCEEDED",
-          quotaInfo: quotaResult,
-        };
+  // 4. Actualizar o insertar match
+  if (targetMatch) {
+    const updatePayload: {
+      lawyer_interest: boolean;
+      lawyer_interacted_at: string;
+      status?: "discarded" | "pending" | "lawyer_interested" | "matched";
+      user_interest?: boolean;
+    } = {
+      lawyer_interest: interested,
+      lawyer_interacted_at: new Date().toISOString(),
+    };
+
+    if (!interested) {
+      updatePayload.status = "discarded";
+    } else {
+      updatePayload.user_interest = true;
+      updatePayload.status = "matched";
+    }
+
+    const { data: updated, error: updErr } = await supabase
+      .from("matches")
+      .update(updatePayload)
+      .eq("id", targetMatch.id)
+      .select("id, status, user_interest, lawyer_interest, case_id, conversations(id)")
+      .single();
+
+    if (updErr) {
+      return { error: updErr.message };
+    }
+    targetMatch = updated;
+  } else if (caseId) {
+    // Caso abierto sin fila de match previa para este abogado
+    const { data: inserted, error: insErr } = await supabase
+      .from("matches")
+      .upsert(
+        {
+          case_id: caseId,
+          lawyer_id: lawyerProfile.id,
+          score: 95,
+          user_interest: true,
+          lawyer_interest: interested,
+          status: interested ? "matched" : "discarded",
+          lawyer_interacted_at: new Date().toISOString(),
+        },
+        { onConflict: "case_id,lawyer_id" }
+      )
+      .select("id, status, user_interest, lawyer_interest, case_id, conversations(id)")
+      .single();
+
+    if (insErr) {
+      return { error: insErr.message };
+    }
+    targetMatch = inserted;
+  } else {
+    return { error: "Identificador de caso o match no proporcionado" };
+  }
+
+  const isMatched =
+    interested &&
+    (targetMatch.status === "matched" ||
+      (Boolean(targetMatch.user_interest) && Boolean(targetMatch.lawyer_interest)));
+
+  let conversationId: string | null = null;
+  if (isMatched) {
+    const rawConv = targetMatch.conversations;
+    const directConvId = Array.isArray(rawConv) ? rawConv[0]?.id : (rawConv as any)?.id;
+
+    if (directConvId) {
+      conversationId = directConvId;
+    } else {
+      const { data: conv } = await supabase
+        .from("conversations")
+        .select("id")
+        .eq("match_id", targetMatch.id)
+        .maybeSingle();
+
+      if (conv?.id) {
+        conversationId = conv.id;
+      } else {
+        const { data: createdConv } = await supabase
+          .from("conversations")
+          .insert({
+            match_id: targetMatch.id,
+            case_id: targetMatch.case_id,
+            is_active: true,
+          })
+          .select("id")
+          .single();
+        conversationId = createdConv?.id || null;
+      }
+    }
+
+    if (conversationId) {
+      const targetConvId = conversationId;
+      try {
+        const { data: existingMsgs } = await supabase
+          .from("messages")
+          .select("id")
+          .eq("conversation_id", targetConvId)
+          .limit(1);
+
+        if (!existingMsgs || existingMsgs.length === 0) {
+          await supabase.from("messages").insert({
+            conversation_id: targetConvId,
+            sender_id: user.id,
+            message:
+              "🎉 ¡Conexión bilateral establecida! Ambas partes han confirmado su interés mutuo en este caso legal. Ya pueden comunicarse y coordinar la atención.",
+          });
+        }
+      } catch (msgErr) {
+        console.error("Error al insertar mensaje inaugural:", msgErr);
+      }
+
+      // Notificar al cliente que el abogado aceptó la consulta
+      if (targetMatch.case_id) {
+        try {
+          const { data: caseRow } = await supabase
+            .from("cases")
+            .select("id, user_id, title")
+            .eq("id", targetMatch.case_id)
+            .maybeSingle();
+
+          if (caseRow?.user_id) {
+            const rawProf = (lawyerProfile as any)?.profiles;
+            const lawyerProfiles = Array.isArray(rawProf) ? rawProf[0] : rawProf;
+            const lawyerName = `${lawyerProfiles?.first_name || "Dr(a)."} ${lawyerProfiles?.last_name || "Abogado"}`.trim();
+            const fee = Number(lawyerProfile.consultation_price ?? 0);
+            const feeText = fee > 0 ? `S/ ${fee.toFixed(2)}` : "Gratuita";
+
+            await supabase.from("notifications").insert({
+              user_id: caseRow.user_id,
+              type: "match_confirmed",
+              title: "🎉 ¡Tu abogado ha aceptado tu consulta!",
+              message: `El ${lawyerName} aceptó atender tu caso "${caseRow.title}". Ingresa a la conversación para abonar los honorarios (${feeText}) y comenzar tu asesoría.`,
+              data: {
+                conversationId: targetConvId,
+                matchId: targetMatch.id,
+                caseId: targetMatch.case_id,
+                lawyerName,
+                consultationPrice: fee,
+                actionUrl: `/chat/${targetConvId}`,
+              },
+            });
+          }
+        } catch (notifErr) {
+          console.error("Error al notificar al cliente sobre match:", notifErr);
+        }
       }
     }
   }
 
-  const { data: updatedMatch, error } = await supabase
-    .from("matches")
-    .update(updatePayload)
-    .eq("id", matchId)
-    .select("*, conversations(*)")
-    .single();
-
-  if (error) {
-    return { error: error.message };
-  }
-
-  const isMatched = updatedMatch.status === "matched" || (updatedMatch.user_interest && updatedMatch.lawyer_interest);
-
+  revalidatePath("/chat");
   revalidatePath("/lawyer/dashboard");
+  if (conversationId) revalidatePath(`/chat/${conversationId}`);
 
   return {
     success: true,
     isMatched,
-    conversationId: (updatedMatch.conversations as any)?.id || null,
+    conversationId,
+    matchId: targetMatch.id,
   };
 }
 
@@ -356,8 +586,11 @@ export async function directMatchWithLawyerAction(params: {
 
     targetCaseId = newCase.id;
 
-    // Calcular matches complementarios en segundo plano
-    void supabase.rpc("calculate_case_matches", { p_case_id: newCase.id }).then(undefined, () => {});
+    try {
+      await supabase.rpc("calculate_case_matches", { p_case_id: newCase.id });
+    } catch {
+      // Ignorar cálculo secundario
+    }
   }
 
   // Registrar o actualizar el interés en public.matches
@@ -368,44 +601,156 @@ export async function directMatchWithLawyerAction(params: {
     .eq("lawyer_id", params.lawyerId)
     .maybeSingle();
 
+  let matchId: string;
   let isMatched = false;
+  let conversationId: string | null = null;
 
   if (existingMatch) {
+    matchId = existingMatch.id;
     isMatched = Boolean(existingMatch.lawyer_interest);
     await supabase
       .from("matches")
       .update({
         user_interest: true,
         user_interacted_at: new Date().toISOString(),
-        status: isMatched ? "matched" : "user_interested",
+        ...(isMatched
+          ? { status: "matched", matched_at: new Date().toISOString() }
+          : { status: "user_interested" }),
       })
       .eq("id", existingMatch.id);
   } else {
-    // Si no existía el registro de match, lo insertamos con afinidad directa
-    await supabase.from("matches").insert({
-      case_id: targetCaseId,
-      lawyer_id: params.lawyerId,
-      score: 96,
-      breakdown: {
-        specialty_match: true,
-        modality_compatible: true,
-        direct_inquiry: true,
-      },
-      status: "user_interested",
-      user_interest: true,
-      lawyer_interest: false,
-      user_interacted_at: new Date().toISOString(),
-    });
+    // Si no existía registro de match, lo insertamos como solicitud del cliente pendiente de aceptación
+    const { data: newMatch, error: matchErr } = await supabase
+      .from("matches")
+      .insert({
+        case_id: targetCaseId,
+        lawyer_id: params.lawyerId,
+        score: 96,
+        breakdown: {
+          specialty_match: true,
+          modality_compatible: true,
+          direct_inquiry: true,
+        },
+        status: "user_interested",
+        user_interest: true,
+        lawyer_interest: false,
+        user_interacted_at: new Date().toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (matchErr || !newMatch) {
+      return { error: `Error creando vinculación con abogado: ${matchErr?.message}` };
+    }
+    matchId = newMatch.id;
+    isMatched = false;
+  }
+
+  // Notificar al abogado sobre la consulta directa recibida
+  let lawyerUserId: string | null = null;
+  const { data: lawyerProf } = await supabase
+    .from("lawyer_profiles")
+    .select("id, user_id")
+    .eq("id", params.lawyerId)
+    .maybeSingle();
+
+  if (lawyerProf?.user_id) {
+    lawyerUserId = lawyerProf.user_id;
+  } else {
+    const { data: lawyerByUser } = await supabase
+      .from("lawyer_profiles")
+      .select("id, user_id")
+      .eq("user_id", params.lawyerId)
+      .maybeSingle();
+    lawyerUserId = lawyerByUser?.user_id || null;
+  }
+
+  if (lawyerUserId) {
+    try {
+      const { data: clientProf } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      const clientName = `${clientProf?.first_name || "Un cliente"} ${clientProf?.last_name || ""}`.trim();
+
+      await supabase.from("notifications").insert({
+        user_id: lawyerUserId,
+        type: "new_client_inquiry",
+        title: "📩 Nueva Consulta Legal Recibida",
+        message: `${clientName} ha seleccionado tu perfil para su caso: "${params.title?.trim() || "Consulta Jurídica"}". Revisa y acéptalo en tu panel para coordinar.`,
+        data: {
+          matchId,
+          caseId: targetCaseId,
+          actionUrl: "/lawyer/dashboard",
+        },
+      });
+    } catch (notifErr) {
+      console.error("Error al notificar al abogado sobre nueva consulta:", notifErr);
+    }
+  }
+
+  // Si ya existía match mutuo bilateral (el abogado ya había mostrado interés antes), creamos o buscamos la conversación
+  if (isMatched) {
+    const { data: existingConv } = await supabase
+      .from("conversations")
+      .select("id")
+      .eq("match_id", matchId)
+      .maybeSingle();
+
+    if (existingConv?.id) {
+      conversationId = existingConv.id;
+    } else {
+      const { data: createdConv } = await supabase
+        .from("conversations")
+        .insert({
+          match_id: matchId,
+          case_id: targetCaseId,
+          is_active: true,
+        })
+        .select("id")
+        .single();
+      conversationId = createdConv?.id || null;
+    }
+
+    if (conversationId) {
+      const { data: existingMsgs } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("conversation_id", conversationId)
+        .limit(1);
+
+      if (!existingMsgs || existingMsgs.length === 0) {
+        const initialText = `Hola Dr(a). Le escribo para realizar una consulta directa sobre mi caso: "${params.title?.trim() || "Consulta Jurídica"}".\n\nDetalles:\n${params.description?.trim() || "Solicito su evaluación jurídica para coordinar la estrategia y posible patrocinio."}`;
+
+        await supabase.from("messages").insert({
+          conversation_id: conversationId,
+          sender_id: user.id,
+          message: initialText,
+        });
+
+        await supabase
+          .from("conversations")
+          .update({ last_message_at: new Date().toISOString() })
+          .eq("id", conversationId);
+      }
+    }
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/lawyer/dashboard");
+  revalidatePath("/chat");
+  if (conversationId) revalidatePath(`/chat/${conversationId}`);
   revalidatePath(`/cases/${targetCaseId}/match`);
 
   return {
     success: true,
     caseId: targetCaseId,
+    conversationId,
     isMatched,
-    message: "Interés y detalles de consulta registrados exitosamente",
+    message: isMatched
+      ? "¡Conexión establecida con éxito! Ya puedes ingresar al chat para abonar los honorarios y comenzar la consulta."
+      : "Consulta enviada al abogado. Te notificaremos en pantalla cuando el abogado acepte tu caso para proceder con el abono de honorarios e iniciar la consulta.",
   };
 }
 

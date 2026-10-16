@@ -15,6 +15,16 @@ export default async function ChatIndexPage() {
     redirect("/login");
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isLawyer = profile?.role === "lawyer";
+  const panelHref = isLawyer ? "/lawyer/dashboard" : "/dashboard";
+  const panelLabel = isLawyer ? "Ir a mi panel de casos" : "Ir a mis casos";
+
   const { conversations } = await getUserConversationsAction();
 
   return (
@@ -40,14 +50,14 @@ export default async function ChatIndexPage() {
           <div className="p-6 rounded-2xl border border-slate-200 bg-slate-50/70 max-w-sm shadow-xs">
             <p className="text-xs text-slate-600 mb-4 leading-relaxed">
               Aún no tienes conversaciones activas. Las conversaciones se crean
-              automáticamente cuando existe un match de mutuo interés entre un
+              automáticamente cuando existe un match o contacto directo entre un
               cliente y un abogado colegiado.
             </p>
             <Link
-              href="/dashboard"
+              href={panelHref}
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs transition-colors shadow-xs"
             >
-              <span>Ir a mi panel</span>
+              <span>{panelLabel}</span>
               <ArrowRight className="w-3.5 h-3.5 text-blue-400" />
             </Link>
           </div>
