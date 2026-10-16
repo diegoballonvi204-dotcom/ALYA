@@ -8,6 +8,11 @@ import {
 import { revalidatePath } from "next/cache";
 import type { ConversationItem } from "@/components/chat/ChatSidebar";
 
+function toObj<T>(val: T | T[] | null | undefined): T | null {
+  if (!val) return null;
+  return Array.isArray(val) ? val[0] || null : val;
+}
+
 export async function getConversationDetailsAction(conversationId: string) {
   const supabase = await createClient();
   const {
@@ -31,6 +36,8 @@ export async function getConversationDetailsAction(conversationId: string) {
       matches (
         id,
         status,
+        user_interest,
+        lawyer_interest,
         score,
         lawyer_id,
         lawyer_profiles (
@@ -59,7 +66,7 @@ export async function getConversationDetailsAction(conversationId: string) {
         urgency,
         city,
         status,
-        specialties (
+        specialties:specialties!cases_specialty_id_fkey (
           id,
           name
         ),
@@ -79,15 +86,28 @@ export async function getConversationDetailsAction(conversationId: string) {
     return { error: "Conversación no encontrada o sin acceso." };
   }
 
-  const rawCase = conv.cases as any;
-  const rawMatch = conv.matches as any;
-  const rawLawyer = rawMatch?.lawyer_profiles;
+  const rawCase = toObj(conv.cases) as any;
+  const rawMatch = toObj(conv.matches) as any;
+  const rawLawyer = toObj(rawMatch?.lawyer_profiles) as any;
+  const rawLawyerProfiles = toObj(rawLawyer?.profiles) as any;
+  const rawCaseProfiles = toObj(rawCase?.profiles) as any;
 
   const isClient = rawCase?.user_id === user.id;
   const isLawyer = rawLawyer?.user_id === user.id;
 
   if (!isClient && !isLawyer) {
     return { error: "No tienes permiso para ver esta conversación." };
+  }
+
+  if (
+    rawMatch?.status !== "matched" ||
+    !rawMatch?.user_interest ||
+    !rawMatch?.lawyer_interest
+  ) {
+    return {
+      error:
+        "Esta conversación aún no ha sido confirmada por ambas partes. Te notificaremos cuando el abogado acepte tu consulta.",
+    };
   }
 
   // 2. Obtener los mensajes de la conversación
@@ -129,9 +149,9 @@ export async function getConversationDetailsAction(conversationId: string) {
     ? {
         role: "lawyer" as const,
         lawyerProfileId: rawLawyer?.id,
-        firstName: rawLawyer?.profiles?.first_name || "Abogado",
-        lastName: rawLawyer?.profiles?.last_name || "",
-        avatarUrl: rawLawyer?.profiles?.avatar_url,
+        firstName: rawLawyerProfiles?.first_name || "Abogado",
+        lastName: rawLawyerProfiles?.last_name || "",
+        avatarUrl: rawLawyerProfiles?.avatar_url,
         barAssociation: rawLawyer?.bar_association,
         barNumber: rawLawyer?.bar_number,
         consultationPrice: rawLawyer?.consultation_price,
@@ -141,9 +161,9 @@ export async function getConversationDetailsAction(conversationId: string) {
     : {
         role: "client" as const,
         lawyerProfileId: null,
-        firstName: rawCase?.profiles?.first_name || "Cliente",
-        lastName: rawCase?.profiles?.last_name || "",
-        avatarUrl: rawCase?.profiles?.avatar_url,
+        firstName: rawCaseProfiles?.first_name || "Cliente",
+        lastName: rawCaseProfiles?.last_name || "",
+        avatarUrl: rawCaseProfiles?.avatar_url,
         barAssociation: null,
         barNumber: null,
         consultationPrice: null,
@@ -152,13 +172,91 @@ export async function getConversationDetailsAction(conversationId: string) {
       };
 
   // 5. Consultar si hay una consulta agendada para este caso
-  const { data: latestConsultation } = await supabase
+  let { data: latestConsultation } = await supabase
     .from("consultations")
-    .select("id, status")
+    .select(`
+      id,
+      status,
+      scheduled_at,
+      duration_minutes,
+      modality,
+      agreed_price,
+      meeting_link,
+      payment_status,
+      payment_method,
+      voucher_url,
+      room_passcode
+    `)
     .eq("case_id", conv.case_id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const lawyerConsultationPrice = Number(rawLawyer?.consultation_price ?? 0);
+
+  // Si no hay consulta previa creada para este caso, inicializarla con el precio del abogado
+  if (!latestConsultation && rawLawyer?.id && rawCase?.user_id) {
+    if (lawyerConsultationPrice > 0) {
+      const { data: createdConsultation } = await supabase
+        .from("consultations")
+        .insert({
+          case_id: conv.case_id,
+          client_id: rawCase.user_id,
+          lawyer_id: rawLawyer.id,
+          scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          duration_minutes: 45,
+          modality: "virtual",
+          agreed_price: lawyerConsultationPrice,
+          status: "requested",
+          payment_status: "pending_payment",
+        })
+        .select(`
+          id,
+          status,
+          scheduled_at,
+          duration_minutes,
+          modality,
+          agreed_price,
+          meeting_link,
+          payment_status,
+          payment_method,
+          voucher_url,
+          room_passcode
+        `)
+        .single();
+      latestConsultation = createdConsultation;
+    } else {
+      // Si el abogado fijó honorario en 0 (gratuito)
+      const { data: createdConsultation } = await supabase
+        .from("consultations")
+        .insert({
+          case_id: conv.case_id,
+          client_id: rawCase.user_id,
+          lawyer_id: rawLawyer.id,
+          scheduled_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+          duration_minutes: 45,
+          modality: "virtual",
+          agreed_price: 0,
+          status: "confirmed",
+          payment_status: "released",
+        })
+        .select(`
+          id,
+          status,
+          scheduled_at,
+          duration_minutes,
+          modality,
+          agreed_price,
+          meeting_link,
+          payment_status,
+          payment_method,
+          voucher_url,
+          room_passcode
+        `)
+        .single();
+      latestConsultation = createdConsultation;
+    }
+  }
 
   let hasReviewed = false;
   if (latestConsultation) {
@@ -192,11 +290,23 @@ export async function getConversationDetailsAction(conversationId: string) {
       id: user.id,
       role: isClient ? ("client" as const) : ("lawyer" as const),
     },
-    counterpart,
+    counterpart: {
+      ...counterpart,
+      consultationPrice: lawyerConsultationPrice,
+    },
     consultation: latestConsultation
       ? {
           id: latestConsultation.id,
           status: latestConsultation.status,
+          scheduledAt: latestConsultation.scheduled_at,
+          durationMinutes: latestConsultation.duration_minutes,
+          modality: latestConsultation.modality,
+          agreedPrice: Number(latestConsultation.agreed_price),
+          meetingLink: latestConsultation.meeting_link,
+          paymentStatus: latestConsultation.payment_status || "pending_payment",
+          paymentMethod: latestConsultation.payment_method || null,
+          voucherUrl: latestConsultation.voucher_url || null,
+          roomPasscode: latestConsultation.room_passcode || null,
           hasReviewed,
         }
       : null,
@@ -221,12 +331,49 @@ export async function sendMessageAction(formData: SendMessageValues) {
 
   const { data: conv } = await supabase
     .from("conversations")
-    .select("id, is_active")
+    .select(`
+      id,
+      is_active,
+      case_id,
+      cases (
+        user_id
+      ),
+      matches (
+        lawyer_profiles (
+          consultation_price
+        )
+      )
+    `)
     .eq("id", validated.data.conversationId)
     .single();
 
   if (!conv || !conv.is_active) {
     return { error: "La conversación está inactiva o no existe." };
+  }
+
+  const rawCase = toObj(conv.cases) as any;
+  const isClient = rawCase?.user_id === user.id;
+
+  // Si el remitente es el cliente, verificar si el abogado requiere abono previo de honorarios
+  if (isClient) {
+    const rawMatch = toObj(conv.matches) as any;
+    const rawLawyer = toObj(rawMatch?.lawyer_profiles) as any;
+    const requiredPrice = Number(rawLawyer?.consultation_price ?? 0);
+
+    if (requiredPrice > 0) {
+      const { data: paidConsultation } = await supabase
+        .from("consultations")
+        .select("id, payment_status")
+        .eq("case_id", conv.case_id)
+        .in("payment_status", ["held_escrow", "released"])
+        .maybeSingle();
+
+      if (!paidConsultation) {
+        return {
+          error: `Debes abonar los honorarios fijados (S/ ${requiredPrice.toFixed(2)}) antes de iniciar la conversación con el abogado.`,
+        };
+      }
+    }
   }
 
   const { data: newMsg, error: insertErr } = await supabase
@@ -305,7 +452,7 @@ export async function getUserConversationsAction(): Promise<{
         id,
         user_id,
         title,
-        specialties (
+        specialties:specialties!cases_specialty_id_fkey (
           name
         ),
         profiles:user_id (
@@ -317,6 +464,9 @@ export async function getUserConversationsAction(): Promise<{
       ),
       matches (
         id,
+        status,
+        user_interest,
+        lawyer_interest,
         lawyer_profiles (
           id,
           user_id,
@@ -345,25 +495,35 @@ export async function getUserConversationsAction(): Promise<{
     return { error: error.message, conversations: [] };
   }
 
-  // Filtrar solo aquellas donde el usuario es cliente o abogado
-  const formatted: ConversationItem[] = (convs || [])
-    .filter((c: any) => {
-      const caseOwner = c.cases?.user_id;
-      const lawyerOwner = c.matches?.lawyer_profiles?.user_id;
-      return caseOwner === user.id || lawyerOwner === user.id;
-    })
+  // Filtrar únicamente conversaciones con match bilateral formalmente confirmado
+  const confirmedConvs = (convs || []).filter((c: any) => {
+    const matchData = toObj(c.matches);
+    return (
+      matchData?.status === "matched" &&
+      matchData?.user_interest === true &&
+      matchData?.lawyer_interest === true
+    );
+  });
+
+  // Normalizar y formatear cada conversación soportando objetos o arrays de PostgREST
+  const formatted: ConversationItem[] = confirmedConvs
     .map((c: any) => {
-      const isClient = c.cases?.user_id === user.id;
-      const lawyerData = c.matches?.lawyer_profiles;
-      const clientData = c.cases?.profiles;
+      const caseData = toObj(c.cases);
+      const matchData = toObj(c.matches);
+      const lawyerData = toObj(matchData?.lawyer_profiles);
+      const lawyerProfiles = toObj(lawyerData?.profiles);
+      const clientProfiles = toObj(caseData?.profiles);
+      const specialtyData = toObj(caseData?.specialties);
+
+      const isClient = caseData?.user_id === user.id;
 
       const counterpartName = isClient
-        ? `${lawyerData?.profiles?.first_name || "Abogado"} ${lawyerData?.profiles?.last_name || ""}`.trim()
-        : `${clientData?.first_name || "Cliente"} ${clientData?.last_name || ""}`.trim();
+        ? `${lawyerProfiles?.first_name || "Abogado"} ${lawyerProfiles?.last_name || ""}`.trim()
+        : `${clientProfiles?.first_name || "Cliente"} ${clientProfiles?.last_name || ""}`.trim();
 
       const counterpartAvatar = isClient
-        ? lawyerData?.profiles?.avatar_url
-        : clientData?.avatar_url;
+        ? lawyerProfiles?.avatar_url
+        : clientProfiles?.avatar_url;
 
       const sortedMessages = (c.messages || []).sort(
         (a: any, b: any) =>
@@ -378,8 +538,8 @@ export async function getUserConversationsAction(): Promise<{
       return {
         id: c.id,
         caseId: c.case_id,
-        caseTitle: c.cases?.title || "Caso Legal",
-        specialtyName: c.cases?.specialties?.name || "General",
+        caseTitle: caseData?.title || "Caso Legal",
+        specialtyName: specialtyData?.name || "General",
         counterpartName,
         counterpartAvatar: counterpartAvatar || null,
         counterpartRole: isClient ? ("lawyer" as const) : ("client" as const),

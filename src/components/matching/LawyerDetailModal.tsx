@@ -43,7 +43,10 @@ export default function LawyerDetailModal({
     lawyer.lawyer_specialties?.[0]?.specialties?.name ||
     "Especialista Jurídico";
 
-  const isVerified = lawyer.verification_status === "approved" || !!lawyer.bar_number;
+  const isVerified =
+    lawyer.verification_status === "verified" ||
+    (lawyer.verification_status as string) === "approved" ||
+    !!lawyer.bar_number;
 
   return (
     <AnimatePresence>

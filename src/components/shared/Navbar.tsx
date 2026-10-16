@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
-import { LogOut, ShieldCheck, Briefcase, LogIn, UserPlus, MessageSquare, Calendar, FolderKanban } from "lucide-react";
+import { LogOut, ShieldCheck, Briefcase, LogIn, UserPlus, MessageSquare, Calendar, FolderKanban, CreditCard, Scale, Wallet } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { MobileNav } from "./MobileNav";
@@ -59,6 +59,9 @@ export async function Navbar() {
           {/* 1. Unauthenticated (Landing mode) */}
           {!user ? (
             <>
+              <Link href="/abogados" className="text-[#2563EB] font-bold hover:text-blue-700 transition-colors">
+                Directorio de Abogados
+              </Link>
               <Link href="/#como-funciona" className="hover:text-[#3157D5] transition-colors">
                 ¿Cómo funciona?
               </Link>
@@ -84,6 +87,9 @@ export async function Navbar() {
               <Link href="/admin/verificaciones" className="hover:text-[#3157D5] transition-colors">
                 Verificaciones
               </Link>
+              <Link href="/admin/subscriptions" className="hover:text-[#3157D5] transition-colors">
+                Suscripciones
+              </Link>
               <Link href="/admin/audit" className="hover:text-[#3157D5] transition-colors">
                 Auditoría Forense
               </Link>
@@ -98,6 +104,10 @@ export async function Navbar() {
                 <Briefcase className="w-4 h-4 text-[#3157D5]" />
                 <span>Casos Compatibles</span>
               </Link>
+              <Link href="/lawyer/finances" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors text-emerald-700 font-bold">
+                <Wallet className="w-4 h-4 text-emerald-600" />
+                <span>Mis Finanzas</span>
+              </Link>
               <Link href="/lawyer/schedule" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
                 <Calendar className="w-4 h-4 text-[#3157D5]" />
                 <span>Mi Agenda</span>
@@ -106,9 +116,9 @@ export async function Navbar() {
                 <MessageSquare className="w-4 h-4 text-[#3157D5]" />
                 <span>Mensajes</span>
               </Link>
-              <Link href="/lawyer/verification" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
-                <ShieldCheck className="w-4 h-4 text-[#3157D5]" />
-                <span>Mi Colegiatura</span>
+              <Link href="/lawyer/subscription" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <CreditCard className="w-4 h-4 text-[#3157D5]" />
+                <span>Mi Plan</span>
               </Link>
             </>
           ) : (
@@ -117,6 +127,10 @@ export async function Navbar() {
               <Link href="/dashboard" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
                 <FolderKanban className="w-4 h-4 text-[#3157D5]" />
                 <span>Mis Casos</span>
+              </Link>
+              <Link href="/abogados" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
+                <Scale className="w-4 h-4 text-[#3157D5]" />
+                <span>Directorio Legal</span>
               </Link>
               <Link href="/chat" className="flex items-center gap-1.5 hover:text-[#3157D5] transition-colors">
                 <MessageSquare className="w-4 h-4 text-[#3157D5]" />

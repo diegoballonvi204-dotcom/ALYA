@@ -104,7 +104,7 @@ export function ScheduleConsultationModal({
       scheduledAt,
       durationMinutes: 45,
       modality,
-      agreedPrice: 150,
+      agreedPrice: consultationPrice > 0 ? consultationPrice : 150,
       notes: notes.trim() || undefined,
     });
 
@@ -150,9 +150,14 @@ export function ScheduleConsultationModal({
                   <h3 className="text-base font-bold text-[#0F172A] font-serif">
                     Agendar Consulta Legal
                   </h3>
-                  <p className="text-xs text-slate-500">
-                    Con {lawyerName}
-                  </p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-slate-500">
+                      Con {lawyerName}
+                    </p>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-md font-mono">
+                      S/ {consultationPrice > 0 ? consultationPrice : 150}.00
+                    </span>
+                  </div>
                 </div>
               </div>
               <button

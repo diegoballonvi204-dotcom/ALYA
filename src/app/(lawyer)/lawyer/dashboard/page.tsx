@@ -6,6 +6,7 @@ import CompatibleCaseCard from "@/components/lawyer/CompatibleCaseCard";
 import LawyerCompatibleCasesContainer from "@/components/lawyer/LawyerCompatibleCasesContainer";
 import LawyerTierBadge from "@/components/lawyer/LawyerTierBadge";
 import SubscriptionExpiryBanner from "@/components/lawyer/SubscriptionExpiryBanner";
+import UrgentFlagrancyBanner from "@/components/lawyer/UrgentFlagrancyBanner";
 import { getMyLawyerSubscriptionAction } from "@/actions/subscription.actions";
 
 export default async function LawyerDashboardPage({
@@ -72,6 +73,7 @@ export default async function LawyerDashboardPage({
         urgency,
         is_confidential,
         created_at,
+        status,
         specialties:specialties!cases_specialty_id_fkey (name)
       )
     `)
@@ -152,6 +154,9 @@ export default async function LawyerDashboardPage({
         planName={currentPlan.name}
         tier={currentPlan.tier}
       />
+
+      {/* Alerta de Guardia de Flagrancia & Casos Inmediatos (Ventana 48h) */}
+      <UrgentFlagrancyBanner />
       {/* Onboarding Complete Success Toast */}
       {params.onboarding === "complete" && (
         <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">

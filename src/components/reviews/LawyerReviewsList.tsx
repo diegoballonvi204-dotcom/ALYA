@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Star,
   MessageSquare,
@@ -34,6 +35,14 @@ export function LawyerReviewsList({
   overallRating,
   totalReviews,
 }: LawyerReviewsListProps) {
+  const [filterScore, setFilterScore] = useState<"all" | 5 | 4 | 3>("all");
+
+  const filteredReviews = reviews.filter((r) => {
+    if (filterScore === "all") return true;
+    if (filterScore === 5) return r.averageScore >= 4.8;
+    if (filterScore === 4) return r.averageScore >= 3.8 && r.averageScore < 4.8;
+    return r.averageScore < 3.8;
+  });
   // Calcular promedios por factor si hay reviews
   const avgComm =
     reviews.length > 0
@@ -163,17 +172,42 @@ export function LawyerReviewsList({
         </div>
       </div>
 
-      {/* 2. Listado de Reseñas de Clientes */}
-      <div className="space-y-3">
-        <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">
-          Opiniones Verificadas ({reviews.length})
-        </h4>
+      {/* 2. Listado de Reseñas de Clientes con Filtros */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">
+            Opiniones Verificadas ({filteredReviews.length})
+          </h4>
 
-        {reviews.length === 0 ? (
+          {/* Filtros por puntuación */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] text-slate-400 mr-1">Filtrar:</span>
+            {[
+              { label: "Todas", value: "all" },
+              { label: "5 ★", value: 5 },
+              { label: "4 ★", value: 4 },
+              { label: "3 ★ o menos", value: 3 },
+            ].map((f) => (
+              <button
+                key={f.label}
+                onClick={() => setFilterScore(f.value as any)}
+                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  filterScore === f.value
+                    ? "bg-[#0F172A] text-white shadow-2xs font-bold"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filteredReviews.length === 0 ? (
           <div className="p-8 rounded-2xl border border-slate-200 bg-white text-center text-slate-500 text-xs shadow-xs">
             <Star className="w-8 h-8 mx-auto mb-2 opacity-30 text-blue-600" />
             <p className="text-slate-700 font-medium">
-              Este abogado aún no cuenta con reseñas públicas registradas.
+              No hay opiniones registradas con este filtro.
             </p>
             <p className="text-[11px] text-slate-400 mt-1">
               Las opiniones se habilitan de forma exclusiva para clientes que
@@ -181,7 +215,7 @@ export function LawyerReviewsList({
             </p>
           </div>
         ) : (
-          reviews.map((r) => {
+          filteredReviews.map((r) => {
             const dateFormatted = new Date(r.createdAt).toLocaleDateString(
               "es-PE",
               { year: "numeric", month: "long", day: "numeric" }

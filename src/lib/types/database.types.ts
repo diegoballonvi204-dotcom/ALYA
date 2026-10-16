@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      payout_requests: {
+        Row: {
+          account_number: string
+          account_type: "ahorros" | "corriente"
+          admin_notes: string | null
+          amount_pen: number
+          bank_name: string
+          beneficiary_dni: string
+          beneficiary_name: string
+          cci_number: string
+          created_at: string
+          id: string
+          lawyer_id: string
+          processed_at: string | null
+          requested_at: string
+          status: "requested" | "processing" | "completed" | "rejected"
+          transfer_voucher_url: string | null
+        }
+        Insert: {
+          account_number: string
+          account_type?: "ahorros" | "corriente"
+          admin_notes?: string | null
+          amount_pen: number
+          bank_name: string
+          beneficiary_dni: string
+          beneficiary_name: string
+          cci_number: string
+          created_at?: string
+          id?: string
+          lawyer_id: string
+          processed_at?: string | null
+          requested_at?: string
+          status?: "requested" | "processing" | "completed" | "rejected"
+          transfer_voucher_url?: string | null
+        }
+        Update: {
+          account_number?: string
+          account_type?: "ahorros" | "corriente"
+          admin_notes?: string | null
+          amount_pen?: number
+          bank_name?: string
+          beneficiary_dni?: string
+          beneficiary_name?: string
+          cci_number?: string
+          created_at?: string
+          id?: string
+          lawyer_id?: string
+          processed_at?: string | null
+          requested_at?: string
+          status?: "requested" | "processing" | "completed" | "rejected"
+          transfer_voucher_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_requests_lawyer_id_fkey"
+            columns: ["lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "lawyer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       arco_requests: {
         Row: {
           created_at: string
@@ -129,8 +191,13 @@ export type Database = {
       }
       case_documents: {
         Row: {
+          ai_analysis: Json | null
+          analysis_status: "pending" | "analyzing" | "completed" | "failed"
+          analyzed_at: string | null
           case_id: string
           created_at: string
+          critical_deadlines: Json | null
+          document_category: "demanda" | "resolucion_judicial" | "notificacion_notarial" | "contrato" | "acta_policial" | "carta_despido" | "otro"
           file_name: string
           file_size_bytes: number
           id: string
@@ -140,8 +207,13 @@ export type Database = {
           visibility: Database["public"]["Enums"]["document_visibility"]
         }
         Insert: {
+          ai_analysis?: Json | null
+          analysis_status?: "pending" | "analyzing" | "completed" | "failed"
+          analyzed_at?: string | null
           case_id: string
           created_at?: string
+          critical_deadlines?: Json | null
+          document_category?: "demanda" | "resolucion_judicial" | "notificacion_notarial" | "contrato" | "acta_policial" | "carta_despido" | "otro"
           file_name: string
           file_size_bytes: number
           id?: string
@@ -151,8 +223,13 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["document_visibility"]
         }
         Update: {
+          ai_analysis?: Json | null
+          analysis_status?: "pending" | "analyzing" | "completed" | "failed"
+          analyzed_at?: string | null
           case_id?: string
           created_at?: string
+          critical_deadlines?: Json | null
+          document_category?: "demanda" | "resolucion_judicial" | "notificacion_notarial" | "contrato" | "acta_policial" | "carta_despido" | "otro"
           file_name?: string
           file_size_bytes?: number
           id?: string
@@ -186,10 +263,12 @@ export type Database = {
           deleted_at: string | null
           description: string
           embedding: string | null
+          emergency_contact_phone: string | null
           id: string
           is_confidential: boolean
           location: unknown
           modality: Database["public"]["Enums"]["modality_type"]
+          police_station: string | null
           search_vector: unknown
           specialty_id: number
           status: Database["public"]["Enums"]["case_status"]
@@ -206,10 +285,12 @@ export type Database = {
           deleted_at?: string | null
           description: string
           embedding?: string | null
+          emergency_contact_phone?: string | null
           id?: string
           is_confidential?: boolean
           location?: unknown
           modality?: Database["public"]["Enums"]["modality_type"]
+          police_station?: string | null
           search_vector?: unknown
           specialty_id: number
           status?: Database["public"]["Enums"]["case_status"]
@@ -226,10 +307,12 @@ export type Database = {
           deleted_at?: string | null
           description?: string
           embedding?: string | null
+          emergency_contact_phone?: string | null
           id?: string
           is_confidential?: boolean
           location?: unknown
           modality?: Database["public"]["Enums"]["modality_type"]
+          police_station?: string | null
           search_vector?: unknown
           specialty_id?: number
           status?: Database["public"]["Enums"]["case_status"]
@@ -272,12 +355,21 @@ export type Database = {
           duration_minutes: number
           id: string
           lawyer_id: string
+          meeting_address: string | null
           meeting_link: string | null
           modality: Database["public"]["Enums"]["modality_type"]
           notes: string | null
+          paid_at: string | null
+          payment_method: string | null
+          payment_reference: string | null
+          payment_status: Database["public"]["Enums"]["consultation_payment_status"] | null
+          refunded_at: string | null
+          released_at: string | null
+          room_passcode: string | null
           scheduled_at: string
           status: Database["public"]["Enums"]["consultation_status"]
           updated_at: string
+          voucher_url: string | null
         }
         Insert: {
           agreed_price?: number
@@ -287,12 +379,21 @@ export type Database = {
           duration_minutes?: number
           id?: string
           lawyer_id: string
+          meeting_address?: string | null
           meeting_link?: string | null
           modality?: Database["public"]["Enums"]["modality_type"]
           notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: Database["public"]["Enums"]["consultation_payment_status"] | null
+          refunded_at?: string | null
+          released_at?: string | null
+          room_passcode?: string | null
           scheduled_at: string
           status?: Database["public"]["Enums"]["consultation_status"]
           updated_at?: string
+          voucher_url?: string | null
         }
         Update: {
           agreed_price?: number
@@ -302,12 +403,21 @@ export type Database = {
           duration_minutes?: number
           id?: string
           lawyer_id?: string
+          meeting_address?: string | null
           meeting_link?: string | null
           modality?: Database["public"]["Enums"]["modality_type"]
           notes?: string | null
+          paid_at?: string | null
+          payment_method?: string | null
+          payment_reference?: string | null
+          payment_status?: Database["public"]["Enums"]["consultation_payment_status"] | null
+          refunded_at?: string | null
+          released_at?: string | null
+          room_passcode?: string | null
           scheduled_at?: string
           status?: Database["public"]["Enums"]["consultation_status"]
           updated_at?: string
+          voucher_url?: string | null
         }
         Relationships: [
           {
@@ -403,6 +513,103 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fee_agreements: {
+        Row: {
+          agreement_hash: string | null
+          case_id: string
+          client_dni: string | null
+          client_full_name: string | null
+          client_id: string
+          client_ip: string | null
+          client_signed_at: string | null
+          client_user_agent: string | null
+          conversation_id: string | null
+          created_at: string
+          document_url: string | null
+          expenses_terms: string
+          fixed_fee: number
+          id: string
+          lawyer_id: string
+          lawyer_signed_at: string | null
+          scope_description: string
+          stages: Json
+          status: string
+          success_fee_percentage: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          agreement_hash?: string | null
+          case_id: string
+          client_dni?: string | null
+          client_full_name?: string | null
+          client_id: string
+          client_ip?: string | null
+          client_signed_at?: string | null
+          client_user_agent?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          document_url?: string | null
+          expenses_terms?: string
+          fixed_fee?: number
+          id?: string
+          lawyer_id: string
+          lawyer_signed_at?: string | null
+          scope_description: string
+          stages?: Json
+          status?: string
+          success_fee_percentage?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          agreement_hash?: string | null
+          case_id?: string
+          client_dni?: string | null
+          client_full_name?: string | null
+          client_id?: string
+          client_ip?: string | null
+          client_signed_at?: string | null
+          client_user_agent?: string | null
+          conversation_id?: string | null
+          created_at?: string
+          document_url?: string | null
+          expenses_terms?: string
+          fixed_fee?: number
+          id?: string
+          lawyer_id?: string
+          lawyer_signed_at?: string | null
+          scope_description?: string
+          stages?: Json
+          status?: string
+          success_fee_percentage?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fee_agreements_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_agreements_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fee_agreements_lawyer_id_fkey"
+            columns: ["lawyer_id"]
+            isOneToOne: false
+            referencedRelation: "lawyer_profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1271,6 +1478,11 @@ export type Database = {
         | "in_progress"
         | "closed"
         | "cancelled"
+      consultation_payment_status:
+        | "pending_payment"
+        | "held_escrow"
+        | "released"
+        | "refunded"
       consultation_status:
         | "requested"
         | "confirmed"
@@ -1448,6 +1660,12 @@ export const Constants = {
         "in_progress",
         "closed",
         "cancelled",
+      ],
+      consultation_payment_status: [
+        "pending_payment",
+        "held_escrow",
+        "released",
+        "refunded",
       ],
       consultation_status: [
         "requested",

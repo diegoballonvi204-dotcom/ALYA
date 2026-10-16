@@ -33,6 +33,7 @@ export default function SwipeDeck({
     bar: string;
     title?: string;
     conversationId?: string | null;
+    consultationPrice?: number | null;
   } | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -56,6 +57,17 @@ export default function SwipeDeck({
       setDeck((prev) => prev.slice(1));
       setIsProcessing(true);
 
+      // Feedback instantáneo de match si el abogado ya mostró interés previo
+      if (interested && (current as any).lawyer_interest) {
+        setMatchedLawyer({
+          name: fullName,
+          bar: `${lawyer.bar_association} • Reg. ${lawyer.bar_number}`,
+          title: lawyer.professional_title,
+          conversationId: (current as any).conversations?.id || null,
+          consultationPrice: lawyer.consultation_price,
+        });
+      }
+
       try {
         if (interested && onExpressInterest) {
           await onExpressInterest(lawyer.id, fullName);
@@ -69,6 +81,7 @@ export default function SwipeDeck({
             bar: `${lawyer.bar_association} • Reg. ${lawyer.bar_number}`,
             title: lawyer.professional_title,
             conversationId: res.conversationId,
+            consultationPrice: lawyer.consultation_price,
           });
         }
       } catch (err) {
@@ -288,6 +301,8 @@ export default function SwipeDeck({
           lawyerTitle={matchedLawyer.title}
           conversationId={matchedLawyer.conversationId}
           caseId={caseId}
+          consultationPrice={matchedLawyer.consultationPrice}
+          isClient={true}
         />
       )}
 

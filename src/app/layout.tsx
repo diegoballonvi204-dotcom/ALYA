@@ -42,7 +42,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" suppressHydrationWarning className={`${sans.variable} ${serif.variable} scroll-smooth`}>
-      <body className="font-sans antialiased selection:bg-blue-600/20 selection:text-[#0F172A] flex min-h-screen flex-col bg-[#F8FAFC] text-[#0F172A] overflow-x-hidden">
+      <body
+        suppressHydrationWarning
+        className="font-sans antialiased selection:bg-blue-600/20 selection:text-[#0F172A] flex min-h-screen flex-col bg-[#F8FAFC] text-[#0F172A] overflow-x-hidden"
+      >
         <QueryProvider>
           <NavbarWrapper>
             <Navbar />

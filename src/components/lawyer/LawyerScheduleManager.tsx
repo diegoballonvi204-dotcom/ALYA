@@ -12,11 +12,15 @@ import {
   Loader2,
   ExternalLink,
   Save,
+  ShieldCheck,
+  Copy,
+  Sparkles,
 } from "lucide-react";
 import {
   saveLawyerScheduleAction,
   updateConsultationStatusAction,
 } from "@/actions/schedule.actions";
+import { JitsiVideoModal } from "@/components/chat/JitsiVideoModal";
 
 const DAYS_OF_WEEK = [
   { day: 1, name: "Lunes" },
@@ -44,9 +48,12 @@ interface ConsultationItem {
   client_name: string;
   scheduled_at: string;
   duration_minutes: number;
-  modality: "virtual" | "in_person";
+  modality: "virtual" | "in_person" | string;
   agreed_price: number;
-  status: "requested" | "confirmed" | "rescheduled" | "completed" | "cancelled";
+  status: "requested" | "confirmed" | "rescheduled" | "completed" | "cancelled" | string;
+  payment_status?: "pending_payment" | "held_escrow" | "released" | "refunded" | string | null;
+  payment_method?: string | null;
+  room_passcode?: string | null;
   meeting_link: string | null;
   meeting_address: string | null;
   notes: string | null;
@@ -87,7 +94,17 @@ export function LawyerScheduleManager({
     isOpen: boolean;
     consultationId: string | null;
     meetingLink: string;
+    caseId?: string;
   }>({ isOpen: false, consultationId: null, meetingLink: "" });
+
+  const [activeVideoModal, setActiveVideoModal] = useState<{
+    isOpen: boolean;
+    meetingLink: string;
+    roomPasscode: string | null;
+    title: string;
+  }>({ isOpen: false, meetingLink: "", roomPasscode: null, title: "" });
+
+  const [copiedPinId, setCopiedPinId] = useState<string | null>(null);
 
   const [isActionPending, startTransition] = useTransition();
 
@@ -152,6 +169,10 @@ export function LawyerScheduleManager({
               ? {
                   ...c,
                   status,
+                  payment_status:
+                    status === "completed" && c.payment_status === "held_escrow"
+                      ? "released"
+                      : c.payment_status,
                   meeting_link: meetingLink !== undefined ? meetingLink : c.meeting_link,
                 }
               : c
@@ -373,9 +394,27 @@ export function LawyerScheduleManager({
                             ? "Concluida"
                             : "Cancelada"}
                         </span>
+
+                        {/* Custodia Escrow Badge */}
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                            c.payment_status === "held_escrow"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : c.payment_status === "released"
+                              ? "bg-blue-50 text-[#2563EB] border border-blue-200"
+                              : "bg-amber-50 text-amber-700 border border-amber-200"
+                          }`}
+                        >
+                          <ShieldCheck className="w-3 h-3" />
+                          {c.payment_status === "held_escrow"
+                            ? "Custodia ALYA Activa"
+                            : c.payment_status === "released"
+                            ? "Honorarios Liberados"
+                            : "Abono Pendiente"}
+                        </span>
                       </div>
 
-                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-3">
+                      <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-3">
                         <span className="font-semibold text-slate-700">
                           {dateFormatted} a las {timeFormatted}
                         </span>
@@ -383,7 +422,7 @@ export function LawyerScheduleManager({
                         <span>{c.duration_minutes} minutos</span>
                         <span>•</span>
                         <span className="text-[#0F172A] font-bold">
-                          S/ {c.agreed_price.toFixed(2)}
+                          Honorarios: S/ {c.agreed_price.toFixed(2)}
                         </span>
                       </p>
 
@@ -394,16 +433,46 @@ export function LawyerScheduleManager({
                       )}
 
                       {c.meeting_link && (
-                        <div className="mt-2 flex items-center gap-2">
-                          <a
-                            href={c.meeting_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs text-[#2563EB] hover:underline font-medium"
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setActiveVideoModal({
+                                isOpen: true,
+                                meetingLink: c.meeting_link!,
+                                roomPasscode: c.room_passcode || null,
+                                title: `Consulta: ${c.case_title}`,
+                              })
+                            }
+                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200 text-xs font-bold transition-all shadow-2xs"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>Enlace de Reunión Virtual</span>
-                          </a>
+                            <Video className="w-3.5 h-3.5" />
+                            <span>Entrar a Videoconsulta</span>
+                          </button>
+
+                          {c.room_passcode && (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-mono border border-slate-200">
+                              <span>PIN:</span>
+                              <strong>{c.room_passcode}</strong>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(c.room_passcode!);
+                                  setCopiedPinId(c.id);
+                                  setTimeout(() => setCopiedPinId(null), 2000);
+                                }}
+                                className="text-slate-400 hover:text-slate-700 transition-colors"
+                                title="Copiar PIN"
+                              >
+                                <Copy className="w-3 h-3" />
+                              </button>
+                              {copiedPinId === c.id && (
+                                <span className="text-[10px] text-emerald-600 font-sans">
+                                  ¡Copiado!
+                                </span>
+                              )}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -415,16 +484,19 @@ export function LawyerScheduleManager({
                       <>
                         <button
                           disabled={isActionPending}
-                          onClick={() =>
+                          onClick={() => {
+                            const defaultLink =
+                              c.meeting_link ||
+                              (c.modality === "virtual"
+                                ? `https://meet.jit.si/alya-legal-${c.case_id.slice(0, 8)}-${Math.random().toString(36).substring(2, 7)}`
+                                : "");
                             setConfirmModal({
                               isOpen: true,
                               consultationId: c.id,
-                              meetingLink:
-                                c.modality === "virtual"
-                                    ? "https://meet.google.com/new"
-                                  : "",
-                            })
-                          }
+                              meetingLink: defaultLink,
+                              caseId: c.case_id,
+                            });
+                          }}
                           className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-colors"
                         >
                           Confirmar Cita
@@ -442,10 +514,21 @@ export function LawyerScheduleManager({
                     {c.status === "confirmed" && (
                       <button
                         disabled={isActionPending}
-                        onClick={() => handleStatusUpdate(c.id, "completed")}
-                        className="px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-colors"
+                        onClick={() => {
+                          const confirmMsg =
+                            c.payment_status === "held_escrow"
+                              ? "¿Deseas marcar la consulta como concluida? Los honorarios en custodia (S/ " +
+                                c.agreed_price.toFixed(2) +
+                                ") serán liberados a tu favor."
+                              : "¿Deseas marcar la consulta como concluida?";
+                          if (window.confirm(confirmMsg)) {
+                            handleStatusUpdate(c.id, "completed");
+                          }
+                        }}
+                        className="px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-colors flex items-center gap-1.5"
                       >
-                        Marcar Concluida
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Marcar Concluida</span>
                       </button>
                     )}
                   </div>
@@ -460,18 +543,31 @@ export function LawyerScheduleManager({
       {confirmModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 p-6 text-[#0F172A] shadow-2xl">
-            <h3 className="text-base font-bold text-[#0F172A] mb-1">
+            <h3 className="text-base font-bold text-[#0F172A] mb-1 font-serif">
               Confirmar Cita Legal
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Ingresa el enlace de Google Meet o Zoom para la videollamada. Se
-              notificará al cliente automáticamente.
+              ALYA genera automáticamente una sala segura y cifrada para tu videoconsulta. Puedes utilizar este enlace o ingresar uno propio si lo prefieres.
             </p>
 
             <div className="space-y-3 mb-5">
-              <label className="block text-xs font-semibold uppercase text-slate-600">
-                Enlace de Videollamada
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-semibold uppercase text-slate-600 font-mono">
+                  Enlace de Videollamada
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const freshLink = `https://meet.jit.si/alya-legal-${(confirmModal.caseId || "law").slice(0, 8)}-${Math.random().toString(36).substring(2, 7)}`;
+                    setConfirmModal((prev) => ({ ...prev, meetingLink: freshLink }));
+                  }}
+                  className="text-[11px] text-[#2563EB] hover:underline flex items-center gap-1 font-medium"
+                >
+                  <Sparkles className="w-3 h-3" />
+                  <span>Regenerar Sala ALYA</span>
+                </button>
+              </div>
+
               <input
                 type="url"
                 value={confirmModal.meetingLink}
@@ -481,8 +577,8 @@ export function LawyerScheduleManager({
                     meetingLink: e.target.value,
                   }))
                 }
-                placeholder="https://meet.google.com/xyz-abcd-efg"
-                className="w-full rounded-xl bg-slate-50 border border-slate-200 p-2.5 text-xs text-[#0F172A] focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                placeholder="https://meet.jit.si/alya-legal-..."
+                className="w-full rounded-xl bg-slate-50 border border-slate-200 p-2.5 text-xs text-[#0F172A] focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono"
               />
             </div>
 
@@ -519,6 +615,25 @@ export function LawyerScheduleManager({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal de Videoconsulta Integrada Jitsi Meet */}
+      {activeVideoModal.isOpen && (
+        <JitsiVideoModal
+          isOpen={activeVideoModal.isOpen}
+          onClose={() =>
+            setActiveVideoModal({
+              isOpen: false,
+              meetingLink: "",
+              roomPasscode: null,
+              title: "",
+            })
+          }
+          meetingLink={activeVideoModal.meetingLink}
+          roomPasscode={activeVideoModal.roomPasscode}
+          consultationTitle={activeVideoModal.title}
+          participantName="Abogado Titular ALYA"
+        />
       )}
     </div>
   );

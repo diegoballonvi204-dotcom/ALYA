@@ -160,6 +160,11 @@ export async function getCaseDocumentsAction(caseId: string) {
       file_size_bytes,
       mime_type,
       visibility,
+      document_category,
+      analysis_status,
+      ai_analysis,
+      critical_deadlines,
+      analyzed_at,
       created_at,
       profiles:uploaded_by (
         first_name,
@@ -192,6 +197,11 @@ export async function getCaseDocumentsAction(caseId: string) {
     fileSizeBytes: d.file_size_bytes,
     mimeType: d.mime_type,
     visibility: d.visibility,
+    documentCategory: d.document_category || "otro",
+    analysisStatus: d.analysis_status || "pending",
+    aiAnalysis: d.ai_analysis || null,
+    criticalDeadlines: d.critical_deadlines || [],
+    analyzedAt: d.analyzed_at,
     createdAt: d.created_at,
     isOwner: d.uploaded_by === user.id,
   }));

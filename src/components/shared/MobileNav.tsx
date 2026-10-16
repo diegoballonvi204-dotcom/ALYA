@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Menu, X, Briefcase, Calendar, MessageSquare, LogOut, LogIn, UserPlus, FolderKanban, ShieldCheck } from "lucide-react";
+import { Menu, X, Briefcase, Calendar, MessageSquare, LogOut, LogIn, UserPlus, FolderKanban, ShieldCheck, CreditCard, Scale } from "lucide-react";
 import { logoutAction } from "@/actions/auth.actions";
 
 interface MobileNavProps {
@@ -31,6 +31,13 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
             {/* 1. Public Links when not authenticated */}
             {!user ? (
               <>
+                <Link
+                  href="/abogados"
+                  onClick={() => setIsOpen(false)}
+                  className="py-2 text-[#2563EB] font-bold transition-colors"
+                >
+                  Directorio de Abogados
+                </Link>
                 <Link
                   href="/#como-funciona"
                   onClick={() => setIsOpen(false)}
@@ -85,6 +92,13 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                   Verificaciones
                 </Link>
                 <Link
+                  href="/admin/subscriptions"
+                  onClick={() => setIsOpen(false)}
+                  className="py-2 hover:text-[#2563EB] transition-colors"
+                >
+                  Suscripciones
+                </Link>
+                <Link
                   href="/admin/audit"
                   onClick={() => setIsOpen(false)}
                   className="py-2 hover:text-[#2563EB] transition-colors"
@@ -127,6 +141,14 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                   <span>Mensajes</span>
                 </Link>
                 <Link
+                  href="/lawyer/subscription"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2 py-2 hover:text-[#2563EB] transition-colors"
+                >
+                  <CreditCard className="w-4 h-4 text-[#2563EB]" />
+                  <span>Mi Plan</span>
+                </Link>
+                <Link
                   href="/lawyer/verification"
                   onClick={() => setIsOpen(false)}
                   className="flex items-center gap-2 py-2 hover:text-[#2563EB] transition-colors"
@@ -145,6 +167,14 @@ export function MobileNav({ user, role, fullName }: MobileNavProps) {
                 >
                   <FolderKanban className="w-4 h-4 text-[#2563EB]" />
                   <span>Mis Casos</span>
+                </Link>
+                <Link
+                  href="/abogados"
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center gap-2 py-2 hover:text-[#2563EB] transition-colors"
+                >
+                  <Scale className="w-4 h-4 text-[#2563EB]" />
+                  <span>Directorio Legal</span>
                 </Link>
                 <Link
                   href="/chat"

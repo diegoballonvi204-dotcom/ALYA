@@ -13,6 +13,9 @@ import {
   Download,
   Loader2,
   ShieldCheck,
+  Sparkles,
+  Clock,
+  ShieldAlert,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
@@ -22,6 +25,8 @@ import {
   getCaseDocumentSignedUrlAction,
   toggleDocumentVisibilityAction,
 } from "@/actions/documents.actions";
+import { analyzeCaseDocumentAction } from "@/actions/ai-documents.actions";
+import { DocumentAiAnalysisModal } from "./DocumentAiAnalysisModal";
 
 interface CaseDocumentsDrawerProps {
   isOpen: boolean;
@@ -48,6 +53,10 @@ export function CaseDocumentsDrawer({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Estados para Análisis Procesal con IA
+  const [analyzingDocId, setAnalyzingDocId] = useState<string | null>(null);
+  const [selectedDocForModal, setSelectedDocForModal] = useState<any | null>(null);
+
   const loadDocuments = async () => {
     setLoading(true);
     const res = await getCaseDocumentsAction(caseId);
@@ -55,6 +64,33 @@ export function CaseDocumentsDrawer({
       setDocuments(res.documents);
     }
     setLoading(false);
+  };
+
+  const handleAnalyzeDocument = async (docId: string) => {
+    setAnalyzingDocId(docId);
+    try {
+      const res = await analyzeCaseDocumentAction(docId);
+      if (res.error) {
+        alert(res.error);
+      } else {
+        await loadDocuments();
+        // Abrir modal con el documento analizado
+        const updated = documents.find((d) => d.id === docId);
+        if (updated) {
+          setSelectedDocForModal({
+            ...updated,
+            analysisStatus: "completed",
+            aiAnalysis: res.analysis,
+            criticalDeadlines: res.deadlines,
+            documentCategory: res.category,
+          });
+        }
+      }
+    } catch (err: any) {
+      alert("Error analizando documento con IA.");
+    } finally {
+      setAnalyzingDocId(null);
+    }
   };
 
   useEffect(() => {
@@ -312,10 +348,15 @@ export function CaseDocumentsDrawer({
                 ) : (
                   documents.map((doc) => {
                     const isPrivate = doc.visibility === "private_client";
+                    const isAnalyzing = analyzingDocId === doc.id;
+                    const isAnalyzed = doc.analysisStatus === "completed";
+                    const hasDeadlines = doc.criticalDeadlines && doc.criticalDeadlines.length > 0;
+                    const topDeadline = hasDeadlines ? doc.criticalDeadlines[0] : null;
+
                     return (
                       <div
                         key={doc.id}
-                        className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200 hover:border-slate-300 transition-all flex flex-col gap-2.5 shadow-2xs"
+                        className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200 hover:border-slate-300 transition-all flex flex-col gap-2.5 shadow-2xs"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-2.5 min-w-0">
@@ -323,9 +364,16 @@ export function CaseDocumentsDrawer({
                               <FileText className="w-4 h-4 text-[#2563EB]" />
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-semibold text-[#0F172A] truncate">
-                                {doc.fileName}
-                              </p>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-xs font-semibold text-[#0F172A] truncate">
+                                  {doc.fileName}
+                                </p>
+                                {doc.documentCategory && doc.documentCategory !== "otro" && (
+                                  <span className="px-1.5 py-0.2 rounded bg-slate-200/80 text-slate-700 text-[9px] font-bold uppercase font-mono">
+                                    {doc.documentCategory.replace("_", " ")}
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[10px] text-slate-400 mt-0.5 font-mono">
                                 Subido por {doc.uploaderName || "Usuario"} •{" "}
                                 {(doc.fileSizeBytes / (1024 * 1024)).toFixed(2)}{" "}
@@ -334,44 +382,91 @@ export function CaseDocumentsDrawer({
                             </div>
                           </div>
 
-                          <button
-                            onClick={() =>
-                              handleDownload(doc.id, doc.fileName)
-                            }
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-[#2563EB] hover:bg-white transition-colors"
-                            title="Descargar documento seguro"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() =>
+                                handleDownload(doc.id, doc.fileName)
+                              }
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-[#2563EB] hover:bg-white transition-colors"
+                              title="Descargar documento seguro"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
-                        {/* Visibility & Permissions Footer */}
-                        <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
-                          <div className="flex items-center gap-1.5">
-                            {isPrivate ? (
-                              <span className="inline-flex items-center gap-1 text-slate-500">
-                                <Lock className="w-3 h-3 text-slate-400" />
-                                Solo visible por ti
+                        {/* Alerta de Plazo Crítico si existe */}
+                        {topDeadline && (
+                          <div className="p-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-900 text-[11px] flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 truncate">
+                              <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0 animate-pulse" />
+                              <span className="truncate font-semibold">
+                                {topDeadline.title}
                               </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[#2563EB] font-medium">
-                                <Share2 className="w-3 h-3" />
-                                Compartido con abogado
-                              </span>
-                            )}
+                            </div>
+                            <span className="px-2 py-0.5 rounded-md bg-rose-600 text-white font-mono font-bold text-[10px] shrink-0">
+                              {topDeadline.daysLeft}d restantes
+                            </span>
                           </div>
+                        )}
 
-                          {isClient && (
+                        {/* Barra de Inteligencia Procesal IA */}
+                        <div className="pt-2 border-t border-slate-200/80 flex items-center justify-between text-[11px]">
+                          {isAnalyzed ? (
                             <button
-                              disabled={isPending}
-                              onClick={() =>
-                                handleToggleVisibility(doc.id, doc.visibility)
-                              }
-                              className="text-slate-500 hover:text-[#2563EB] transition-colors text-[10px] underline underline-offset-2"
+                              onClick={() => setSelectedDocForModal(doc)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] font-bold text-[11px] transition-colors border border-blue-200 shadow-2xs"
                             >
-                              Cambiar a {isPrivate ? "Compartido" : "Privado"}
+                              <Sparkles className="w-3 h-3 text-[#2563EB]" />
+                              Ver Análisis Forense
+                            </button>
+                          ) : (
+                            <button
+                              disabled={isAnalyzing}
+                              onClick={() => handleAnalyzeDocument(doc.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 font-medium text-[11px] transition-colors border border-slate-300 shadow-2xs disabled:opacity-50"
+                            >
+                              {isAnalyzing ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#2563EB]" />
+                                  Analizando...
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3 h-3 text-[#2563EB]" />
+                                  Analizar con IA
+                                </>
+                              )}
                             </button>
                           )}
+
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              {isPrivate ? (
+                                <span className="inline-flex items-center gap-1 text-slate-500 text-[10px]">
+                                  <Lock className="w-2.5 h-2.5 text-slate-400" />
+                                  Privado
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[#2563EB] font-medium text-[10px]">
+                                  <Share2 className="w-2.5 h-2.5" />
+                                  Compartido
+                                </span>
+                              )}
+                            </div>
+
+                            {isClient && (
+                              <button
+                                disabled={isPending}
+                                onClick={() =>
+                                  handleToggleVisibility(doc.id, doc.visibility)
+                                }
+                                className="text-slate-500 hover:text-[#2563EB] transition-colors text-[10px] underline underline-offset-2"
+                              >
+                                {isPrivate ? "Compartir" : "Privatizar"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -380,6 +475,19 @@ export function CaseDocumentsDrawer({
               </div>
             </motion.div>
           </div>
+
+          {/* Modal de Análisis Procesal con IA */}
+          {selectedDocForModal && (
+            <DocumentAiAnalysisModal
+              isOpen={Boolean(selectedDocForModal)}
+              onClose={() => setSelectedDocForModal(null)}
+              fileName={selectedDocForModal.fileName}
+              category={selectedDocForModal.documentCategory}
+              analysis={selectedDocForModal.aiAnalysis}
+              deadlines={selectedDocForModal.criticalDeadlines || []}
+              analyzedAt={selectedDocForModal.analyzedAt}
+            />
+          )}
         </div>
       )}
     </AnimatePresence>
