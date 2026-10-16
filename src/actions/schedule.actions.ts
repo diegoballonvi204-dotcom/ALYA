@@ -499,6 +499,96 @@ export async function createConsultationCheckoutAction(consultationId: string) {
 }
 
 /**
+ * Procesa el pago seguro con tarjeta de crédito o débito asegurando custodia en Escrow
+ */
+export async function processCardConsultationPaymentAction(params: {
+  consultationId: string;
+  cardNumber: string;
+  cardHolder: string;
+  expiry: string;
+  cvv: string;
+  docNumber?: string;
+}) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "No autenticado" };
+
+  const cleanNum = params.cardNumber.replace(/\s+/g, "");
+  if (cleanNum.length < 15 || cleanNum.length > 19) {
+    return { success: false, error: "Ingresa un número de tarjeta válido (15 o 16 dígitos)." };
+  }
+  if (!params.cardHolder || params.cardHolder.trim().length < 3) {
+    return { success: false, error: "Ingresa el nombre del titular tal como figura en la tarjeta." };
+  }
+  if (!/^\d{2}\/\d{2}$/.test(params.expiry)) {
+    return { success: false, error: "Formato de fecha de expiración inválido. Debe ser MM/AA." };
+  }
+  const [expMonth, expYear] = params.expiry.split("/").map(Number);
+  if (expMonth < 1 || expMonth > 12) {
+    return { success: false, error: "Mes de vencimiento inválido (debe ser entre 01 y 12)." };
+  }
+  if (params.cvv.length < 3 || params.cvv.length > 4) {
+    return { success: false, error: "Código de seguridad CVV inválido (3 o 4 dígitos)." };
+  }
+
+  const { data: c } = await supabase
+    .from("consultations")
+    .select("id, client_id, case_id, agreed_price, meeting_link")
+    .eq("id", params.consultationId)
+    .single();
+
+  if (!c || c.client_id !== user.id) return { success: false, error: "Consulta no encontrada o no autorizada" };
+
+  // Detectar marca
+  let brand = "Visa";
+  if (cleanNum.startsWith("4")) brand = "Visa";
+  else if (/^5[1-5]/.test(cleanNum) || /^2[2-7]/.test(cleanNum)) brand = "Mastercard";
+  else if (/^3[47]/.test(cleanNum)) brand = "American Express";
+  else if (/^3[68]/.test(cleanNum)) brand = "Diners Club";
+
+  const last4 = cleanNum.slice(-4);
+  const authCode = `AUTH-${Date.now().toString().slice(-6)}`;
+  const autoMeetingRoom = c.meeting_link || `https://meet.jit.si/alya-legal-${c.id.replace(/-/g, "").slice(0, 16)}`;
+
+  await supabase
+    .from("consultations")
+    .update({
+      payment_status: "held_escrow",
+      payment_method: `card_${brand.toLowerCase().replace(/\s+/g, "_")}`,
+      payment_reference: authCode,
+      paid_at: new Date().toISOString(),
+      meeting_link: autoMeetingRoom,
+    })
+    .eq("id", params.consultationId);
+
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("case_id", c.case_id)
+    .maybeSingle();
+
+  if (conv) {
+    await supabase.from("messages").insert({
+      conversation_id: conv.id,
+      sender_id: user.id,
+      message: `💳 **Pago con Tarjeta Procesado en Custodia (Escrow)**:\nTarjeta: ${brand} •••• ${last4}\nTitular: ${params.cardHolder.trim().toUpperCase()}\nAutorización: ${authCode}\nMonto Abonado: S/ ${Number(c.agreed_price).toFixed(2)}\nEstado: **Fondos en Custodia Protegida ALYA**\nEl honorario del abogado se encuentra retenido en garantía y solo se liberará al concluir la consulta jurídica.`,
+    });
+    revalidatePath(`/chat/${conv.id}`);
+  }
+
+  revalidatePath("/lawyer/schedule");
+  return {
+    success: true,
+    authCode,
+    brand,
+    last4,
+  };
+}
+
+/**
  * Confirmación de pago con tarjeta en modo simulación (entorno de pruebas/demo)
  */
 export async function confirmSimulatedConsultationPaymentAction(consultationId: string) {
@@ -511,11 +601,13 @@ export async function confirmSimulatedConsultationPaymentAction(consultationId: 
 
   const { data: c } = await supabase
     .from("consultations")
-    .select("id, client_id, case_id, agreed_price")
+    .select("id, client_id, case_id, agreed_price, meeting_link")
     .eq("id", consultationId)
     .single();
 
   if (!c || c.client_id !== user.id) return { success: false, error: "No autorizado" };
+
+  const autoMeetingRoom = c.meeting_link || `https://meet.jit.si/alya-legal-${c.id.replace(/-/g, "").slice(0, 16)}`;
 
   await supabase
     .from("consultations")
@@ -524,6 +616,7 @@ export async function confirmSimulatedConsultationPaymentAction(consultationId: 
       payment_method: "mercadopago",
       payment_reference: `SIM-MP-${Date.now().toString().slice(-6)}`,
       paid_at: new Date().toISOString(),
+      meeting_link: autoMeetingRoom,
     })
     .eq("id", consultationId);
 

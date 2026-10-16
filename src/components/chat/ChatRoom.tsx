@@ -121,13 +121,14 @@ export function ChatRoom({
     consultationState?.paymentStatus === "held_escrow" ||
     consultationState?.paymentStatus === "released";
   const requiresClientPayment = isClient && !isPaidOrFree;
+  const [hasDismissedPaymentModal, setHasDismissedPaymentModal] = useState(false);
 
   // Apertura automática del modal de pago si es la primera interacción y requiere pago
   useEffect(() => {
-    if (requiresClientPayment && consultationState?.id) {
+    if (requiresClientPayment && consultationState?.id && !hasDismissedPaymentModal) {
       setIsPaymentOpen(true);
     }
-  }, [requiresClientPayment, consultationState?.id]);
+  }, [requiresClientPayment, consultationState?.id, hasDismissedPaymentModal]);
 
   const loadAgreements = async () => {
     const res = await getCaseFeeAgreementsAction(caseData.id);
@@ -285,6 +286,13 @@ export function ChatRoom({
 
   const counterpartFullName = `${counterpart.firstName} ${counterpart.lastName}`.trim();
 
+  // Enlace seguro de videoconsulta (Jitsi Meet Cifrado) garantizado
+  const effectiveMeetingLink =
+    consultationState?.meetingLink ||
+    (consultationState?.id
+      ? `https://meet.jit.si/alya-legal-${consultationState.id.replace(/-/g, "").slice(0, 16)}`
+      : `https://meet.jit.si/alya-legal-${conversation.caseId.replace(/-/g, "").slice(0, 16)}`);
+
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-50/60 overflow-hidden">
       {/* 1. Header Superior del Chat */}
@@ -342,7 +350,8 @@ export function ChatRoom({
           {/* Videoconsulta Rápida (Si los fondos están en custodia y es virtual) */}
           {consultationState &&
             consultationState.paymentStatus === "held_escrow" &&
-            consultationState.modality !== "presencial" && (
+            (consultationState.modality as string) !== "in_person" &&
+            (consultationState.modality as string) !== "presencial" && (
               <button
                 onClick={() => setIsVideoOpen(true)}
                 className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2 transition-all shadow-xs"
@@ -407,7 +416,10 @@ export function ChatRoom({
         <ConsultationContextBanner
           consultation={consultationState}
           isClient={isClient}
-          onOpenPayment={() => setIsPaymentOpen(true)}
+          onOpenPayment={() => {
+            setHasDismissedPaymentModal(false);
+            setIsPaymentOpen(true);
+          }}
           onOpenVideo={() => setIsVideoOpen(true)}
           onOpenReview={() => setIsReviewOpen(true)}
         />
@@ -645,32 +657,44 @@ export function ChatRoom({
       )}
 
       {/* Modal de Pago de Consulta en Custodia (Escrow) */}
-      {isClient && consultationState && (
+      {isClient && consultationState && isPaymentOpen && (
         <ConsultationPaymentModal
           isOpen={isPaymentOpen}
-          onClose={() => setIsPaymentOpen(false)}
+          onClose={() => {
+            setIsPaymentOpen(false);
+            setHasDismissedPaymentModal(true);
+          }}
           consultationId={consultationState.id}
           agreedPrice={consultationState.agreedPrice || counterpart.consultationPrice || 150}
           lawyerName={counterpartFullName}
           onPaymentSuccess={(status?: string) => {
             setConsultationState((prev) =>
-              prev ? { ...prev, paymentStatus: status || "held_escrow" } : null
+              prev
+                ? {
+                    ...prev,
+                    paymentStatus: status || "held_escrow",
+                    meetingLink:
+                      prev.meetingLink ||
+                      `https://meet.jit.si/alya-legal-${prev.id.replace(/-/g, "").slice(0, 16)}`,
+                  }
+                : null
             );
           }}
         />
       )}
 
       {/* Modal de Videoconsulta Integrada Jitsi Meet */}
-      {consultationState && consultationState.meetingLink && (
+      {consultationState && (
         <JitsiVideoModal
           isOpen={isVideoOpen}
           onClose={() => setIsVideoOpen(false)}
-          meetingLink={consultationState.meetingLink}
+          meetingLink={effectiveMeetingLink}
           roomPasscode={consultationState.roomPasscode || null}
           consultationTitle={`Consulta: ${caseData.title}`}
+          counterpartName={counterpartFullName}
           participantName={
             isClient
-              ? `Cliente (${currentUser.role})`
+              ? "Cliente ALYA"
               : `Abg. ${counterpart.firstName || ""}`
           }
         />

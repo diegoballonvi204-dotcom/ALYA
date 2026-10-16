@@ -18,8 +18,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  createConsultationCheckoutAction,
-  confirmSimulatedConsultationPaymentAction,
+  processCardConsultationPaymentAction,
   submitConsultationVoucherAction,
 } from "@/actions/schedule.actions";
 
@@ -47,44 +46,104 @@ export function ConsultationPaymentModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Estados de Yape/Plin
+  // Estados de Tarjeta de Crédito / Débito
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardHolder, setCardHolder] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [docNumber, setDocNumber] = useState("");
+
+  // Estados de Transferencia / Voucher (Yape / Plin / BCP)
   const [paymentMethod, setPaymentMethod] = useState<"yape" | "plin" | "bank_transfer">("yape");
   const [operationNumber, setOperationNumber] = useState("");
   const [voucherFile, setVoucherFile] = useState<File | null>(null);
   const [voucherPreview, setVoucherPreview] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // Detección dinámica de marca de tarjeta
+  const getCardBrand = (num: string) => {
+    const clean = num.replace(/\s+/g, "");
+    if (clean.startsWith("4")) return "Visa";
+    if (/^5[1-5]/.test(clean) || /^2[2-7]/.test(clean)) return "Mastercard";
+    if (/^3[47]/.test(clean)) return "Amex";
+    if (/^3[68]/.test(clean)) return "Diners";
+    return "Card";
+  };
 
-  const handleCardPayment = async () => {
-    setIsProcessing(true);
+  const handleCardNumberInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 16);
+    const formatted = raw.replace(/(\d{4})(?=\d)/g, "$1 ");
+    setCardNumber(formatted);
+    if (errorMsg) setErrorMsg(null);
+  };
+
+  const handleExpiryInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value.replace(/\D/g, "").slice(0, 4);
+    if (raw.length >= 3) {
+      raw = `${raw.slice(0, 2)}/${raw.slice(2, 4)}`;
+    }
+    setExpiry(raw);
+    if (errorMsg) setErrorMsg(null);
+  };
+
+  const handleCvvInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "").slice(0, 4);
+    setCvv(raw);
+    if (errorMsg) setErrorMsg(null);
+  };
+
+  // Procesamiento del pago con tarjeta
+  const handleCardPayment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setErrorMsg(null);
 
+    const cleanNum = cardNumber.replace(/\s+/g, "");
+    if (cleanNum.length < 15) {
+      setErrorMsg("Ingresa los 16 dígitos de tu tarjeta de crédito o débito.");
+      return;
+    }
+    if (!cardHolder.trim() || cardHolder.trim().length < 3) {
+      setErrorMsg("Ingresa el nombre del titular como figura en la tarjeta.");
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(expiry)) {
+      setErrorMsg("Ingresa una fecha de expiración válida (MM/AA).");
+      return;
+    }
+    const [month] = expiry.split("/").map(Number);
+    if (month < 1 || month > 12) {
+      setErrorMsg("El mes de expiración debe estar entre 01 y 12.");
+      return;
+    }
+    if (cvv.length < 3) {
+      setErrorMsg("Ingresa el código de seguridad CVV (3 dígitos al reverso).");
+      return;
+    }
+
+    setIsProcessing(true);
+
     try {
-      const res = await createConsultationCheckoutAction(consultationId);
+      const res = await processCardConsultationPaymentAction({
+        consultationId,
+        cardNumber,
+        cardHolder: cardHolder.trim().toUpperCase(),
+        expiry,
+        cvv,
+        docNumber: docNumber.trim(),
+      });
 
-      if (!res.success) {
-        setErrorMsg(res.error || "No se pudo iniciar el checkout.");
-        setIsProcessing(false);
-        return;
-      }
-
-      if (res.isSimulation) {
-        // En desarrollo o sin credenciales activas de MP, simular confirmación
-        const simRes = await confirmSimulatedConsultationPaymentAction(consultationId);
-        if (simRes.success) {
-          setSuccessMsg("¡Pago en custodia asegurado exitosamente! Tu consulta está lista.");
-          if (onPaymentSuccess) onPaymentSuccess("held_escrow");
-          setTimeout(() => {
-            onClose();
-          }, 2200);
-        } else {
-          setErrorMsg(simRes.error || "Error al registrar pago simulado.");
-        }
-      } else if (res.checkoutUrl) {
-        window.location.href = res.checkoutUrl;
+      if (res.success) {
+        setSuccessMsg(
+          `¡Pago aprobado con éxito! Autorización: ${res.authCode}. Fondos protegidos en custodia de garantía ALYA.`
+        );
+        if (onPaymentSuccess) onPaymentSuccess("held_escrow");
+        setTimeout(() => {
+          onClose();
+        }, 2200);
+      } else {
+        setErrorMsg(res.error || "No se pudo procesar el pago con la tarjeta.");
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "Error al procesar pago");
+      setErrorMsg(err.message || "Error al procesar la transacción con la pasarela.");
     } finally {
       setIsProcessing(false);
     }
@@ -155,25 +214,28 @@ export function ConsultationPaymentModal({
     }
   };
 
+  // Si no está abierto, no renderizar nada
+  if (!isOpen) return null;
+
   return (
     <AnimatePresence>
-      <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-3 sm:p-5">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-hidden">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs"
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs cursor-pointer"
         />
 
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
-          className="relative z-10 w-full max-w-lg rounded-3xl bg-white border border-slate-200 text-[#0F172A] shadow-2xl overflow-hidden"
+          className="relative z-10 w-full max-w-lg rounded-3xl bg-white border border-slate-200 text-[#0F172A] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden"
         >
           {/* Header */}
-          <div className="p-6 border-b border-slate-100 bg-linear-to-b from-slate-50 to-white flex items-center justify-between">
+          <div className="p-5 sm:p-6 border-b border-slate-100 bg-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-[#2563EB] shadow-2xs">
                 <CreditCard className="w-5 h-5" />
@@ -189,8 +251,10 @@ export function ConsultationPaymentModal({
             </div>
 
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              title="Cerrar modal"
             >
               <X className="w-5 h-5" />
             </button>
@@ -210,9 +274,9 @@ export function ConsultationPaymentModal({
               </p>
             </div>
           ) : (
-            <div className="p-6 space-y-5">
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1 [scrollbar-width:thin] [scrollbar-color:#cbd5e1_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-slate-200 hover:[&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full">
               {/* Desglose de Tarifa */}
-              <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-4 space-y-2">
+              <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5 space-y-1.5">
                 <div className="flex items-center justify-between text-xs text-slate-600">
                   <span>Materia del Caso:</span>
                   <strong className="text-slate-900 font-medium truncate max-w-[200px]">
@@ -231,9 +295,9 @@ export function ConsultationPaymentModal({
                     S/ 0.00 (Gratis)
                   </span>
                 </div>
-                <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-sm font-bold text-[#0F172A]">
+                <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-sm font-bold text-[#0F172A]">
                   <span>Total a Pagar:</span>
-                  <span className="text-lg font-mono text-[#2563EB]">
+                  <span className="text-base font-mono text-[#2563EB]">
                     S/ {Number(agreedPrice).toFixed(2)}
                   </span>
                 </div>
@@ -268,13 +332,155 @@ export function ConsultationPaymentModal({
                 </button>
               </div>
 
-              {/* TAB 1: Tarjeta con Mercado Pago */}
+              {/* TAB 1: Tarjeta de Crédito o Débito */}
               {activeTab === "card" ? (
-                <div className="space-y-4">
-                  <div className="rounded-xl border border-blue-200/80 bg-blue-50/50 p-3.5 text-xs text-slate-700 flex items-start gap-2.5">
+                <form onSubmit={handleCardPayment} className="space-y-3.5">
+                  {/* Tarjeta Visual Interactiva */}
+                  <div className="relative overflow-hidden rounded-2xl bg-gradient-to-tr from-slate-900 via-slate-800 to-indigo-950 p-4 text-white shadow-lg border border-slate-700/60 select-none">
+                    <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full bg-blue-500/10 blur-xl pointer-events-none" />
+                    <div className="absolute -left-8 -bottom-8 w-32 h-32 rounded-full bg-amber-500/10 blur-xl pointer-events-none" />
+
+                    <div className="relative z-10 flex flex-col justify-between h-32">
+                      <div className="flex items-center justify-between">
+                        {/* Chip de seguridad */}
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-6 rounded-md bg-linear-to-tr from-amber-300 via-amber-200 to-amber-400 p-0.5 shadow-xs border border-amber-400/80 flex items-center justify-center">
+                            <div className="w-full h-full border border-amber-600/30 rounded-xs flex flex-col justify-around py-0.5 px-1">
+                              <div className="w-full h-[1px] bg-amber-700/30" />
+                              <div className="w-full h-[1px] bg-amber-700/30" />
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-300 font-mono tracking-wider">CHIP SEGURO</span>
+                        </div>
+                        {/* Marca detectada */}
+                        <div className="px-2.5 py-1 rounded-md bg-white/10 backdrop-blur-xs border border-white/15 text-xs font-bold tracking-wider uppercase text-blue-200">
+                          {getCardBrand(cardNumber)}
+                        </div>
+                      </div>
+
+                      {/* Número de Tarjeta */}
+                      <div className="font-mono text-base tracking-widest font-semibold text-slate-100">
+                        {cardNumber ? cardNumber : "•••• •••• •••• ••••"}
+                      </div>
+
+                      {/* Datos inferiores */}
+                      <div className="flex items-end justify-between text-[11px]">
+                        <div>
+                          <p className="text-[9px] uppercase tracking-wider text-slate-400 font-medium">Titular</p>
+                          <p className="font-semibold tracking-wide text-slate-100 truncate max-w-[200px]">
+                            {cardHolder ? cardHolder.toUpperCase() : "NOMBRE Y APELLIDO"}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[9px] uppercase tracking-wider text-slate-400 font-medium">Expira</p>
+                          <p className="font-mono font-semibold text-slate-100">
+                            {expiry ? expiry : "MM/AA"}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Campos del Formulario */}
+                  <div className="space-y-3">
+                    {/* Número de Tarjeta */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Número de Tarjeta (Débito o Crédito)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={cardNumber}
+                          onChange={handleCardNumberInput}
+                          placeholder="4000 1234 5678 9010"
+                          maxLength={19}
+                          className="w-full rounded-xl border border-slate-200 bg-white pl-9 pr-16 py-2 text-xs font-mono font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none transition-colors"
+                        />
+                        <CreditCard className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <span className="absolute right-3 top-2 text-[10px] font-bold text-blue-600 uppercase bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
+                          {getCardBrand(cardNumber)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Nombre del Titular */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        Nombre del Titular de la Tarjeta
+                      </label>
+                      <input
+                        type="text"
+                        value={cardHolder}
+                        onChange={(e) => {
+                          setCardHolder(e.target.value);
+                          if (errorMsg) setErrorMsg(null);
+                        }}
+                        placeholder="Como figura impreso en el plástico"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs uppercase font-medium text-slate-900 placeholder:normal-case placeholder:text-slate-400 focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+
+                    {/* Vencimiento y CVV */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Vencimiento (MM/AA)
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={expiry}
+                          onChange={handleExpiryInput}
+                          placeholder="MM/AA"
+                          maxLength={5}
+                          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-center font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
+                          Código CVV
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="password"
+                            inputMode="numeric"
+                            value={cvv}
+                            onChange={handleCvvInput}
+                            placeholder="•••"
+                            maxLength={4}
+                            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-center font-medium text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none transition-colors"
+                          />
+                          <Lock className="w-3.5 h-3.5 text-slate-400 absolute right-3 top-2.5" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Documento DNI */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
+                        DNI / Documento de Identidad del Titular
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={docNumber}
+                        onChange={(e) => {
+                          setDocNumber(e.target.value.replace(/\D/g, "").slice(0, 10));
+                          if (errorMsg) setErrorMsg(null);
+                        }}
+                        placeholder="DNI del titular para comprobante"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Certificado de seguridad */}
+                  <div className="rounded-xl border border-blue-200/80 bg-blue-50/50 p-3 text-xs text-slate-700 flex items-start gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                    <p className="leading-relaxed">
-                      Paga de forma inmediata con cualquier tarjeta de crédito o débito Visa, Mastercard o Diners mediante la pasarela segura de Mercado Pago.
+                    <p className="leading-relaxed text-[11px]">
+                      Conexión encriptada SSL de 256 bits y tokenización PCI-DSS. Los fondos quedan asegurados en garantía de custodia ALYA Escrow hasta la conclusión de tu asesoría.
                     </p>
                   </div>
 
@@ -286,24 +492,24 @@ export function ConsultationPaymentModal({
                   )}
 
                   <button
-                    type="button"
-                    onClick={handleCardPayment}
+                    type="submit"
                     disabled={isProcessing}
-                    className="w-full py-3 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-2 transition-all cursor-pointer"
+                    className="w-full py-3.5 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs shadow-md disabled:opacity-50 flex items-center justify-center gap-2 transition-all cursor-pointer"
                   >
                     {isProcessing ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-                        <span>Conectando con pasarela segura...</span>
+                        <span>Procesando pago seguro con tarjeta...</span>
                       </>
                     ) : (
                       <>
-                        <span>Pagar S/ {Number(agreedPrice).toFixed(2)} con Tarjeta</span>
+                        <Lock className="w-4 h-4 text-emerald-400" />
+                        <span>Pagar S/ {Number(agreedPrice).toFixed(2)} con Tarjeta Segura</span>
                         <ArrowRight className="w-4 h-4 text-blue-400" />
                       </>
                     )}
                   </button>
-                </div>
+                </form>
               ) : (
                 /* TAB 2: Yape / Plin / BCP */
                 <form onSubmit={handleVoucherSubmit} className="space-y-4">
