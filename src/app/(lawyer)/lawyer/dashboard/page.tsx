@@ -114,22 +114,6 @@ export default async function LawyerDashboardPage({
           conversation_id: (m.conversations as any)?.id || (m.conversations as any)?.[0]?.id || null,
         },
       }));
-    } else {
-      const specialtyIds = lawyerSpecialties?.map((ls) => ls.specialty_id) || [];
-      const { data: openCases } = await supabase
-        .from("cases")
-        .select("*, specialties:specialties!cases_specialty_id_fkey(name)")
-        .in("specialty_id", specialtyIds.length > 0 ? specialtyIds : [0])
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (openCases) {
-        rawCases = openCases.map((c) => ({
-          caseItem: c,
-          matchInfo: null,
-        }));
-      }
     }
   }
 

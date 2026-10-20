@@ -80,7 +80,7 @@ export async function submitLawyerOnboarding(values: LawyerOnboardingValues) {
       address_office: parsed.data.addressOffice || null,
       consultation_price: parsed.data.consultationPrice || null,
       currency: "PEN",
-      verification_status: "pending",
+      verification_status: "in_review",
       is_available: true,
     })
     .select("id")
@@ -106,6 +106,31 @@ export async function submitLawyerOnboarding(values: LawyerOnboardingValues) {
     return { error: `Error guardando especialidades: ${specError.message}` };
   }
 
-  revalidatePath("/lawyer/verification");
-  redirect("/lawyer/verification?onboarding=complete");
+  // 4. Crear o actualizar expediente documental en public.verifications
+  const { error: verifError } = await supabase
+    .from("verifications")
+    .upsert(
+      {
+        lawyer_id: lawyerProfile.id,
+        identity_status: "in_review",
+        bar_status: "in_review",
+        documents_metadata: {
+          dni_front: parsed.data.dniFrontPath,
+          dni_back: parsed.data.dniBackPath,
+          bar_card: parsed.data.barCardPath,
+          habilitation_cert: parsed.data.habilitationCertPath || null,
+          uploaded_at: new Date().toISOString(),
+        },
+        rejection_reason: null,
+      },
+      { onConflict: "lawyer_id" }
+    );
+
+  if (verifError) {
+    console.error("Error registrando expediente en verifications:", verifError);
+  }
+
+  revalidatePath("/lawyer/dashboard");
+  revalidatePath("/admin/verifications");
+  redirect("/lawyer/dashboard");
 }

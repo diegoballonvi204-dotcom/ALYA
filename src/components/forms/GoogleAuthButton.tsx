@@ -21,7 +21,7 @@ export function GoogleAuthButton({ role = "client", mode = "signup" }: GoogleAut
       
       const origin = window.location.origin;
       const nextPath = role === "lawyer" ? "/onboarding/lawyer" : "/dashboard";
-      const redirectUrl = `${origin}/auth/callback?role=${encodeURIComponent(role)}&next=${encodeURIComponent(nextPath)}`;
+      const redirectUrl = `${origin}/auth/callback?mode=${encodeURIComponent(mode)}&role=${encodeURIComponent(role)}&next=${encodeURIComponent(nextPath)}`;
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",

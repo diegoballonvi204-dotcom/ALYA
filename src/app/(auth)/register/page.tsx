@@ -6,7 +6,7 @@ import { RegisterForm } from "@/components/forms/RegisterForm";
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ role?: string; error?: string }>;
+  searchParams: Promise<{ role?: string; error?: string; email?: string }>;
 }) {
   const params = await searchParams;
   const initialRole = params.role === "lawyer" ? "lawyer" : "client";
@@ -40,7 +40,7 @@ export default async function RegisterPage({
           </div>
         )}
 
-        <RegisterForm initialRole={initialRole} />
+        <RegisterForm initialRole={initialRole} initialEmail={params.email || ""} />
 
         <div className="mt-8 text-center text-xs text-slate-500 pt-5 border-t border-slate-100">
           ¿Ya tienes una cuenta registrada?{" "}

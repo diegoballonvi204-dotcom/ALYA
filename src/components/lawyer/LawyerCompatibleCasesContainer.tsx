@@ -190,6 +190,24 @@ export default function LawyerCompatibleCasesContainer({
     setSelectedCity("all");
   };
 
+  if (initialCases.length === 0) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center shadow-xs space-y-4 my-4">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 border border-blue-100">
+          <Briefcase className="w-7 h-7" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-[#0F172A] font-serif">
+            Aún no tienes consultas o casos asignados a tu despacho
+          </h3>
+          <p className="text-xs text-slate-500 mt-1.5 max-w-md mx-auto leading-relaxed">
+            Tu perfil profesional colegiado está activo y protegido. En cuanto un cliente solicite una consulta directa o confirme interés en tus especialidades jurídicas, el caso aparecerá en esta consola confidencial.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const visibleCards = deck.slice(0, 3);
 
   return (
