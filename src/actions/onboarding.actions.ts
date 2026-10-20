@@ -106,6 +106,6 @@ export async function submitLawyerOnboarding(values: LawyerOnboardingValues) {
     return { error: `Error guardando especialidades: ${specError.message}` };
   }
 
-  revalidatePath("/lawyer/dashboard");
-  redirect("/lawyer/dashboard?onboarding=complete");
+  revalidatePath("/lawyer/verification");
+  redirect("/lawyer/verification?onboarding=complete");
 }

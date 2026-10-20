@@ -119,9 +119,10 @@ export default function VerificationDecisionModal({
                   ¿Confirmas que la matrícula <strong>{barNumber}</strong> del abogado{" "}
                   <strong>{lawyerName}</strong> ha sido verificada y se encuentra debidamente habilitada en su respectivo Colegio de Abogados?
                 </p>
-                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800">
-                  ✓ El perfil lucirá la insignia de verificación oficial.
-                  <br />✓ El profesional será recomendado de inmediato en el motor de matching.
+                <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-xs text-emerald-800 space-y-1">
+                  <p>✓ El perfil lucirá la insignia de verificación oficial.</p>
+                  <p>✓ Se enviará un correo con la confirmación de aprobación y el código de activación.</p>
+                  <p>✓ Una vez ingresado el código, el abogado podrá ver casos de clientes y configurar su perfil.</p>
                 </div>
 
                 <div className="mt-6 flex justify-end gap-3">
