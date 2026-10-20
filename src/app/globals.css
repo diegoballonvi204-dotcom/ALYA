@@ -143,13 +143,69 @@ body {
   display: block !important;
 }
 
-.theme-navbar-landing header nav a {
-  color: #E2E8F0 !important;
-  font-weight: 500 !important;
+/* Links de navegación generales Desktop (Modo App / Claro) */
+header nav.desktop-nav a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 15px;
+  border-radius: 9999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: #64748B;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
 }
 
-.theme-navbar-landing header nav a:hover {
+header nav.desktop-nav a:hover {
+  color: #1E3A8A;
+  background-color: #EEF2F6;
+  border-color: #CBD5E1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(30, 58, 138, 0.08);
+}
+
+header nav.desktop-nav a:active {
+  transform: translateY(0) scale(0.97);
+}
+
+header nav.desktop-nav a:focus-visible {
+  outline: 2px solid #3157D5;
+  outline-offset: 2px;
+}
+
+/* Links de navegación Desktop en Landing Page (Modo Oscuro Glassmorphic) */
+.theme-navbar-landing header nav.desktop-nav a {
+  color: rgba(203, 213, 225, 0.75) !important;
+  font-weight: 500 !important;
+  padding: 7px 16px !important;
+  border-radius: 9999px !important;
+  border: 1px solid transparent !important;
+  background-color: transparent !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.theme-navbar-landing header nav.desktop-nav a:hover {
   color: #FFFFFF !important;
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 18px rgba(96, 165, 250, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.theme-navbar-landing header nav.desktop-nav a:active {
+  transform: translateY(0) scale(0.97) !important;
+  background-color: rgba(255, 255, 255, 0.24) !important;
+}
+
+.theme-navbar-landing header nav.desktop-nav a:focus-visible {
+  outline: 2px solid #60A5FA !important;
+  outline-offset: 2px !important;
 }
 
 .theme-navbar-landing header .nav-btn-login {
@@ -157,15 +213,18 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   color: #FFFFFF !important;
   box-shadow: none !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .theme-navbar-landing header .nav-btn-login:hover {
   background-color: rgba(255, 255, 255, 0.18) !important;
   border-color: rgba(255, 255, 255, 0.35) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
 }
 
-.theme-navbar-landing header .nav-btn-login svg {
-  color: #93C5FD !important;
+.theme-navbar-landing header .nav-btn-login:active {
+  transform: translateY(0) scale(0.97) !important;
 }
 
 .theme-navbar-landing header .nav-btn-register {
@@ -173,19 +232,131 @@ body {
   color: #070B14 !important;
   border: none !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 .theme-navbar-landing header .nav-btn-register:hover {
-  background-color: #F1F5F9 !important;
+  background-color: #F8FAFC !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.15), 0 4px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
-.theme-navbar-landing header .nav-btn-register svg {
-  color: #1E3A8A !important;
+.theme-navbar-landing header .nav-btn-register:active {
+  transform: translateY(0) scale(0.97) !important;
 }
 
 .theme-navbar-landing header button[aria-label="Abrir menú"] {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #FFFFFF !important;
+}
+
+/* ========================================================
+   Mobile Menu Drawer Styles (Claro / Oscuro)
+   ======================================================== */
+
+/* Panel móvil en Modo Claro (App) */
+.mobile-nav-panel {
+  background-color: #FFFFFF;
+  border-bottom: 1px solid #E2E8F0;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.15);
+}
+
+.mobile-nav-panel .mobile-nav-link {
+  color: #1E293B;
+  font-weight: 600;
+  background-color: transparent;
+  transition: all 0.15s ease;
+}
+
+.mobile-nav-panel .mobile-nav-link:hover,
+.mobile-nav-panel .mobile-nav-link:active {
+  color: #1E3A8A;
+  background-color: #F1F5F9;
+}
+
+.mobile-nav-panel .mobile-link-highlight {
+  color: #2563EB;
+}
+
+/* Panel móvil en Landing Page (Modo Oscuro Sólido y 100% Opaco y Nítido) */
+.theme-navbar-landing .mobile-nav-panel {
+  background-color: #070B14 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 30px 60px -10px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 0, 0, 0.9) !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-nav-link {
+  color: #E2E8F0 !important;
+  font-weight: 600 !important;
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  transition: all 0.15s ease !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-nav-link:hover,
+.theme-navbar-landing .mobile-nav-panel .mobile-nav-link:active {
+  color: #FFFFFF !important;
   background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-link-highlight {
+  color: #60A5FA !important;
+  font-weight: 700 !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-divider {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-login {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  color: #FFFFFF !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-login:hover {
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-login svg {
+  color: #93C5FD !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-register {
+  background-color: #FFFFFF !important;
+  color: #070B14 !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-register:hover {
+  background-color: #F1F5F9 !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-register svg {
+  color: #1E3A8A !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-user-card {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-user-card p {
+  color: #FFFFFF !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-logout {
+  background-color: rgba(255, 255, 255, 0.08) !important;
   border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #E2E8F0 !important;
+}
+
+.theme-navbar-landing .mobile-nav-panel .mobile-btn-logout:hover {
+  background-color: rgba(255, 255, 255, 0.16) !important;
   color: #FFFFFF !important;
 }
 

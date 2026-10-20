@@ -65,23 +65,23 @@ export async function Navbar() {
         </Link>
 
         {/* Center Desktop Navigation - DYNAMIC ACCORDING TO USER ROLE */}
-        <nav className="hidden md:flex items-center gap-7 text-[13px] font-medium text-slate-700" aria-label="Navegación principal">
+        <nav className="desktop-nav hidden md:flex items-center gap-1 lg:gap-2 text-[13px] font-medium" aria-label="Navegación principal">
           {/* 1. Unauthenticated (Landing mode) */}
           {!user ? (
             <>
-              <Link href="/#como-funciona" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
+              <Link href="/#como-funciona">
                 ¿Cómo funciona?
               </Link>
-              <Link href="/#especialidades" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
+              <Link href="/#especialidades">
                 Especialidades
               </Link>
-              <Link href="/#matching" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
+              <Link href="/#matching">
                 Matching Inteligente
               </Link>
-              <Link href="/#para-abogados" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
+              <Link href="/#para-abogados">
                 Para Abogados
               </Link>
-              <Link href="/#seguridad" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
+              <Link href="/#seguridad">
                 Seguridad & Privacidad
               </Link>
             </>
