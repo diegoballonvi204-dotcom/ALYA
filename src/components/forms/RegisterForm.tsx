@@ -7,9 +7,10 @@ import { GoogleAuthButton } from "./GoogleAuthButton";
 
 interface RegisterFormProps {
   initialRole: "client" | "lawyer";
+  initialEmail?: string;
 }
 
-export function RegisterForm({ initialRole }: RegisterFormProps) {
+export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormProps) {
   const [role, setRole] = useState<"client" | "lawyer">(initialRole);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -138,6 +139,7 @@ export function RegisterForm({ initialRole }: RegisterFormProps) {
             type="email"
             name="email"
             required
+            defaultValue={initialEmail}
             placeholder="carlos@ejemplo.pe"
             className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
           />

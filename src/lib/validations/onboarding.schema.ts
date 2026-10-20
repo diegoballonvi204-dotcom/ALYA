@@ -30,6 +30,10 @@ export const LawyerOnboardingSchema = z
       .number()
       .min(30, "La tarifa sugerida mínima es S/. 30.00")
       .optional(),
+    dniFrontPath: z.string().min(1, "Debes adjuntar el anverso de tu DNI"),
+    dniBackPath: z.string().min(1, "Debes adjuntar el reverso de tu DNI"),
+    barCardPath: z.string().min(1, "Debes adjuntar tu carné de colegiatura oficial"),
+    habilitationCertPath: z.string().optional(),
   })
   .refine((data) => data.virtualAttention || data.physicalAttention, {
     message: "Debes seleccionar al menos una modalidad (virtual o presencial)",

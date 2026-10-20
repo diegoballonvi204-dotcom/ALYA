@@ -98,3 +98,63 @@ export async function logoutAction() {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+export async function completeGoogleSignupAction(formData: FormData) {
+  const rawData = Object.fromEntries(formData.entries());
+  
+  const firstName = String(rawData.firstName || "").trim();
+  const lastName = String(rawData.lastName || "").trim();
+  const role = String(rawData.role || "client") as "client" | "lawyer";
+  const password = String(rawData.password || "");
+  const confirmPassword = String(rawData.confirmPassword || "");
+
+  if (firstName.length < 2) {
+    return { error: "Ingresa tus nombres completos" };
+  }
+  if (lastName.length < 2) {
+    return { error: "Ingresa tus apellidos completos" };
+  }
+  if (password.length < 8) {
+    return { error: "La contraseña debe tener al menos 8 caracteres" };
+  }
+  if (password !== confirmPassword) {
+    return { error: "Las contraseñas no coinciden" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Sesión de Google no encontrada o expirada. Por favor vuelve a registrarte." };
+  }
+
+  // 1. Establecer la contraseña personal para el usuario
+  const { error: pwdErr } = await supabase.auth.updateUser({ password });
+  if (pwdErr) {
+    return { error: `Error estableciendo contraseña: ${pwdErr.message}` };
+  }
+
+  // 2. Crear el registro en profiles
+  const { error: profileErr } = await supabase.from("profiles").upsert({
+    id: user.id,
+    role,
+    first_name: firstName,
+    last_name: lastName,
+    city: "Lima",
+  });
+
+  if (profileErr) {
+    return { error: `Error creando perfil: ${profileErr.message}` };
+  }
+
+  revalidatePath("/", "layout");
+
+  if (role === "lawyer") {
+    redirect("/onboarding/lawyer");
+  } else {
+    redirect("/dashboard");
+  }
+}
+

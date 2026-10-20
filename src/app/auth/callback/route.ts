@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const roleParam = searchParams.get("role");
+  const mode = searchParams.get("mode") ?? "login";
+  const roleParam = searchParams.get("role") ?? "client";
   const next = searchParams.get("next") ?? "/dashboard";
 
   if (code) {
@@ -16,45 +17,42 @@ export async function GET(request: Request) {
       } = await supabase.auth.getUser();
 
       if (user) {
-        // 1. Obtener o crear perfil del usuario
-        let { data: profile } = await supabase
+        // 1. Verificar si el usuario ya tiene un perfil registrado en ALYA
+        const { data: profile } = await supabase
           .from("profiles")
           .select("role, first_name, last_name")
           .eq("id", user.id)
           .maybeSingle();
 
-        const meta = user.user_metadata || {};
-        const fullName = (meta.full_name || meta.name || "").trim();
-        const nameParts = fullName.split(" ");
-        const firstName = meta.given_name || meta.first_name || nameParts[0] || "Usuario";
-        const lastName = meta.family_name || meta.last_name || nameParts.slice(1).join(" ") || "";
-
-        const targetRole = roleParam === "lawyer" ? "lawyer" : (profile?.role || "client");
-
-        if (!profile) {
-          const { data: newProfile } = await supabase
-            .from("profiles")
-            .upsert({
-              id: user.id,
-              role: targetRole as any,
-              first_name: firstName,
-              last_name: lastName,
-              city: "Lima",
-            })
-            .select("role, first_name, last_name")
-            .single();
-          profile = newProfile;
-        } else if (roleParam === "lawyer" && profile.role !== "lawyer") {
-          await supabase
-            .from("profiles")
-            .update({ role: "lawyer" })
-            .eq("id", user.id);
-          profile.role = "lawyer";
+        // CASO A: Viene de Iniciar Sesión (mode === "login") y NO tiene cuenta registrada previa:
+        if (mode === "login" && !profile) {
+          // Desconectar sesión huérfana de OAuth
+          await supabase.auth.signOut();
+          const userEmail = encodeURIComponent(user.email || "");
+          return NextResponse.redirect(
+            `${origin}/login?error=account_not_found&email=${userEmail}`
+          );
         }
 
-        const effectiveRole = (profile?.role || targetRole || "client").toLowerCase();
+        // CASO B: Viene de Crear Cuenta (mode === "signup") y YA tiene perfil registrado:
+        if (mode === "signup" && profile) {
+          const userEmail = encodeURIComponent(user.email || "");
+          return NextResponse.redirect(
+            `${origin}/login?message=existing_account&email=${userEmail}`
+          );
+        }
 
-        // 2. Redirección inteligente según rol y estado
+        // CASO C: Viene de Crear Cuenta (mode === "signup") y es nuevo usuario:
+        // No creamos el perfil a ciegas. Lo redirigimos a la pantalla de configuración asistida con contraseña y rol
+        if (mode === "signup" && !profile) {
+          return NextResponse.redirect(
+            `${origin}/register/setup-password?role=${encodeURIComponent(roleParam)}`
+          );
+        }
+
+        // CASO D: Usuario existente autenticado con éxito
+        const effectiveRole = (profile?.role || "client").toLowerCase();
+
         if (effectiveRole === "lawyer") {
           const { data: lawyer } = await supabase
             .from("lawyer_profiles")
@@ -72,9 +70,9 @@ export async function GET(request: Request) {
         if (effectiveRole === "admin" || effectiveRole === "verifier") {
           return NextResponse.redirect(`${origin}/admin/verifications`);
         }
-      }
 
-      return NextResponse.redirect(`${origin}${next}`);
+        return NextResponse.redirect(`${origin}${next}`);
+      }
     }
   }
 
