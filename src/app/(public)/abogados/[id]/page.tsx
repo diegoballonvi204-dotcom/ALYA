@@ -100,7 +100,7 @@ export default async function PublicLawyerProfilePage({
 
       {/* Top Breadcrumb Nav */}
       <div className="bg-white border-b border-slate-200">
-        <div className="w-full max-w-6xl mx-auto px-6 sm:px-10 py-4 flex items-center justify-between">
+        <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-4 flex items-center justify-between">
           <Link
             href="/abogados"
             className="inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-[#2563EB] transition-colors"
@@ -115,10 +115,10 @@ export default async function PublicLawyerProfilePage({
         </div>
       </div>
 
-      <main className="w-full max-w-6xl mx-auto px-6 sm:px-10 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Columna Principal Izquierda (2/3) */}
-          <div className="lg:col-span-2 space-y-8">
+      <main className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Columna Principal Izquierda (8/12) */}
+          <div className="lg:col-span-8 xl:col-span-8 space-y-8">
             {/* 1. Header Card */}
             <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
               <div className="flex flex-col sm:flex-row items-start gap-6">
@@ -289,9 +289,9 @@ export default async function PublicLawyerProfilePage({
             </section>
           </div>
 
-          {/* Columna Lateral Derecha (1/3) - Widget de Reserva y Contacto */}
-          <div className="space-y-6">
-            <div className="sticky top-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
+          {/* Columna Lateral Derecha (4/12) - Widget de Reserva y Contacto */}
+          <div className="lg:col-span-4 xl:col-span-4 space-y-6">
+            <div className="sticky top-24 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-6">
               {/* Tarifa de Consulta */}
               <div>
                 <span className="text-xs font-bold uppercase text-slate-500 tracking-wider font-mono">

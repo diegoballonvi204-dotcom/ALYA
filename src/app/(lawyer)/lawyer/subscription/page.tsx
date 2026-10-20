@@ -75,7 +75,7 @@ export default async function LawyerSubscriptionPage() {
   const quotaPercentage = Math.min(100, Math.round((matchesUsed / maxQuota) * 100));
 
   return (
-    <div className="w-full max-w-[1500px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-10">
+    <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-10">
       {/* Alerta Preventiva de Vencimiento / Gracia */}
       <SubscriptionExpiryBanner
         status={subscription?.status || "active"}

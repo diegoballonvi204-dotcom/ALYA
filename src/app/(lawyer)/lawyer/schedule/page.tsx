@@ -80,7 +80,7 @@ export default async function LawyerSchedulePage() {
   }));
 
   return (
-    <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
+    <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
       {/* Header Banner */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xs">
         <div>

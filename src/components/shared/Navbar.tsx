@@ -37,44 +37,51 @@ export async function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200/80 bg-white/95 backdrop-blur-md transition-all shadow-xs">
-      <div className="mx-auto flex h-18 w-full max-w-[1700px] items-center justify-between px-6 sm:px-10 lg:px-12">
+      <div className="mx-auto flex h-18 w-full max-w-[1600px] items-center justify-between px-6 sm:px-10 lg:px-12">
         {/* Brand Logo */}
         <Link
           href={homeHref}
           className="flex items-center gap-3 transition-transform hover:scale-[1.02] active:scale-95 group shrink-0 py-1"
           aria-label="ALYA Inicio"
         >
+          {/* Logo estándar para fondos claros */}
           <Image
             src="/logoAlya.png"
             alt="ALYA LegalTech"
             width={160}
             height={48}
             priority
-            className="h-11 sm:h-12 w-auto object-contain drop-shadow-2xs"
+            className="h-11 sm:h-12 w-auto object-contain drop-shadow-2xs logo-default"
+          />
+          {/* Logo blanco invertido para fondos oscuros */}
+          <Image
+            src="/logoAlya-white.png"
+            alt="ALYA LegalTech"
+            width={160}
+            height={48}
+            priority
+            className="h-11 sm:h-12 w-auto object-contain drop-shadow-md logo-inverted hidden"
           />
         </Link>
 
         {/* Center Desktop Navigation - DYNAMIC ACCORDING TO USER ROLE */}
-        <nav className="hidden md:flex items-center gap-7 text-[13px] font-semibold text-[#667085]">
+        <nav className="hidden md:flex items-center gap-7 text-[13px] font-medium text-slate-700" aria-label="Navegación principal">
           {/* 1. Unauthenticated (Landing mode) */}
           {!user ? (
             <>
-              <Link href="/abogados" className="text-[#2563EB] font-bold hover:text-blue-700 transition-colors">
-                Directorio de Abogados
-              </Link>
-              <Link href="/#como-funciona" className="hover:text-[#3157D5] transition-colors">
+              <Link href="/#como-funciona" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
                 ¿Cómo funciona?
               </Link>
-              <Link href="/#especialidades" className="hover:text-[#3157D5] transition-colors">
+              <Link href="/#especialidades" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
                 Especialidades
               </Link>
-              <Link href="/#matching" className="hover:text-[#3157D5] transition-colors">
+              <Link href="/#matching" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
                 Matching Inteligente
               </Link>
-              <Link href="/#para-abogados" className="hover:text-[#3157D5] transition-colors">
+              <Link href="/#para-abogados" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
                 Para Abogados
               </Link>
-              <Link href="/#seguridad" className="hover:text-[#3157D5] transition-colors">
+              <Link href="/#seguridad" className="text-slate-700 hover:text-[#1E3A8A] font-medium transition-colors hover:-translate-y-0.5 transform duration-150">
                 Seguridad & Privacidad
               </Link>
             </>
@@ -178,14 +185,14 @@ export async function Navbar() {
             <div className="flex items-center gap-2.5">
               <Link
                 href="/login"
-                className="group inline-flex items-center gap-2 rounded-xl border border-[#E6EAF0] bg-white px-4 py-2 text-[13px] font-semibold text-[#101828] shadow-xs hover:border-[#3157D5] hover:bg-[#F7F8FC] hover:text-[#3157D5] transition-all"
+                className="nav-btn-login group inline-flex items-center gap-2 rounded-xl border border-[#E6EAF0] bg-white px-4 py-2 text-[13px] font-semibold text-[#101828] shadow-xs hover:border-[#3157D5] hover:bg-[#F7F8FC] hover:text-[#3157D5] transition-all"
               >
                 <LogIn className="h-4 w-4 text-[#3157D5] transition-transform group-hover:scale-105" />
                 <span>Iniciar sesión</span>
               </Link>
               <Link
                 href="/register"
-                className="group inline-flex items-center gap-2 rounded-xl bg-[#101828] px-4.5 py-2 text-[13px] font-bold text-white shadow-md shadow-slate-900/10 hover:bg-[#1E293B] transition-all"
+                className="nav-btn-register group inline-flex items-center gap-2 rounded-xl bg-[#101828] px-4.5 py-2 text-[13px] font-bold text-white shadow-md shadow-slate-900/10 hover:bg-[#1E293B] transition-all"
               >
                 <UserPlus className="h-4 w-4 text-blue-400 transition-transform group-hover:scale-105" />
                 <span>Crear cuenta</span>
