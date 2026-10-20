@@ -10,5 +10,11 @@ export function NavbarWrapper({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  return <>{children}</>;
+  const isLanding = pathname === "/";
+
+  return (
+    <div className={isLanding ? "theme-navbar-landing" : "theme-navbar-app"}>
+      {children}
+    </div>
+  );
 }

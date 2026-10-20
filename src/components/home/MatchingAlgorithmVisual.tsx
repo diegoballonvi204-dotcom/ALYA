@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Sparkles,
   Sliders,
+  Zap,
 } from "lucide-react";
 
 export function MatchingAlgorithmVisual() {
@@ -19,6 +20,7 @@ export function MatchingAlgorithmVisual() {
       id: 0,
       title: "Materia & Especialidad",
       weight: "35%",
+      weightValue: 35,
       icon: Scale,
       detail: "Taxonomía jurídica peruana de 32 áreas para asegurar correspondencia doctrinal y procesal exacta.",
     },
@@ -26,6 +28,7 @@ export function MatchingAlgorithmVisual() {
       id: 1,
       title: "Años de Experiencia",
       weight: "25%",
+      weightValue: 25,
       icon: Award,
       detail: "Trayectoria verificada en litigios similares, postgrados y colegiatura activa.",
     },
@@ -33,6 +36,7 @@ export function MatchingAlgorithmVisual() {
       id: 2,
       title: "Distrito Judicial",
       weight: "15%",
+      weightValue: 15,
       icon: MapPin,
       detail: "Corte Superior de Justicia o jurisdicción competente (Lima, Callao, Arequipa, etc.).",
     },
@@ -40,6 +44,7 @@ export function MatchingAlgorithmVisual() {
       id: 3,
       title: "Disponibilidad Inmediata",
       weight: "15%",
+      weightValue: 15,
       icon: Calendar,
       detail: "Horarios abiertos en agenda digital para consultas presenciales o virtuales en menos de 24 horas.",
     },
@@ -47,6 +52,7 @@ export function MatchingAlgorithmVisual() {
       id: 4,
       title: "Reputación Multidimensional",
       weight: "10%",
+      weightValue: 10,
       icon: CheckCircle2,
       detail: "Evaluación objetiva post-consulta: comunicación, puntualidad, claridad y trato profesional.",
     },
@@ -73,18 +79,22 @@ export function MatchingAlgorithmVisual() {
             A diferencia de los directorios tradicionales basados en publicidad pagada, nuestro motor pondera variables objetivas para que encuentres al especialista idóneo.
           </p>
 
-          <div className="space-y-2 pt-2">
+          <div className="space-y-2 pt-2" role="tablist" aria-label="Variables del algoritmo de matching">
             {factors.map((factor) => {
               const Icon = factor.icon;
               const isActive = selectedFactor === factor.id;
               return (
                 <button
                   key={factor.id}
+                  id={`factor-tab-${factor.id}`}
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={`factor-panel-${factor.id}`}
                   onClick={() => setSelectedFactor(factor.id)}
                   type="button"
-                  className={`w-full flex items-center justify-between p-3.5 rounded-2xl text-left transition-all border ${
+                  className={`w-full flex items-center justify-between p-3.5 rounded-2xl text-left transition-all border cursor-pointer ${
                     isActive
-                      ? "bg-white border-[#2563EB] shadow-md shadow-blue-500/10 -translate-y-0.5"
+                      ? "bg-white border-[#2563EB] shadow-md shadow-blue-500/10 -translate-y-0.5 ring-1 ring-blue-500/20"
                       : "bg-white/60 border-slate-200/70 hover:bg-white hover:border-slate-300"
                   }`}
                 >
@@ -121,7 +131,12 @@ export function MatchingAlgorithmVisual() {
 
         {/* Right: Live Interactive Simulation Preview */}
         <div className="lg:col-span-6 flex flex-col items-center">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 border border-slate-200 shadow-lg relative">
+          <div
+            id={`factor-panel-${selectedFactor}`}
+            role="tabpanel"
+            aria-labelledby={`factor-tab-${selectedFactor}`}
+            className="w-full max-w-md rounded-2xl bg-white p-6 border border-slate-200 shadow-lg relative"
+          >
             {/* Top Badge */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">
@@ -146,13 +161,26 @@ export function MatchingAlgorithmVisual() {
               <p className="text-xs text-slate-600 mt-1.5 leading-relaxed font-sans">
                 {factors[selectedFactor].detail}
               </p>
+              {/* Progress Bar reflecting the weight factor */}
+              <div className="mt-3">
+                <div className="flex justify-between text-[10.5px] font-mono text-slate-500 mb-1">
+                  <span>Impacto en la decisión</span>
+                  <span className="font-semibold text-slate-700">{factors[selectedFactor].weight}</span>
+                </div>
+                <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-600 to-[#3157D5] rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${factors[selectedFactor].weightValue * 2.5}%` }}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Connecting Visual Energy Line */}
+            {/* Connecting Visual Energy Line with SVG Zap icon */}
             <div className="py-4 flex items-center justify-center">
               <div className="h-0.5 w-full bg-gradient-to-r from-[#0F172A] via-blue-500 to-[#1E293B] rounded-full relative">
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white shadow">
-                  ⚡
+                <div className="absolute -top-2 left-1/2 -translate-x-1/2 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-blue-600 text-white shadow-sm ring-2 ring-white">
+                  <Zap className="w-2.5 h-2.5 fill-current" />
                 </div>
               </div>
             </div>

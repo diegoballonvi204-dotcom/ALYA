@@ -47,10 +47,18 @@ export default function RootLayout({
         className="font-sans antialiased selection:bg-blue-600/20 selection:text-[#0F172A] flex min-h-screen flex-col bg-[#F8FAFC] text-[#0F172A] overflow-x-hidden"
       >
         <QueryProvider>
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2.5 focus:bg-[#101828] focus:text-white focus:rounded-xl focus:shadow-2xl focus:ring-2 focus:ring-[#3157D5] focus:font-semibold text-xs"
+          >
+            Saltar al contenido principal
+          </a>
           <NavbarWrapper>
             <Navbar />
           </NavbarWrapper>
-          <main className="flex-1">{children}</main>
+          <main id="main-content" className="flex-1 focus:outline-hidden">
+            {children}
+          </main>
         </QueryProvider>
       </body>
     </html>

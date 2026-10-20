@@ -45,7 +45,7 @@ export default function LawyerFinancesPage() {
   const totalWithdrawn = finances?.totalWithdrawn || 0;
 
   return (
-    <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8 text-[#0F172A]">
+    <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8 text-[#0F172A]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

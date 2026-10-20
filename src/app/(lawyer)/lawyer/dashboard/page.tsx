@@ -146,7 +146,7 @@ export default async function LawyerDashboardPage({
     });
 
   return (
-    <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
+    <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
       {/* Alerta Preventiva de Vencimiento de Membresía / Gracia */}
       <SubscriptionExpiryBanner
         status={subRes.subscription?.status || "active"}
@@ -155,11 +155,12 @@ export default async function LawyerDashboardPage({
         tier={currentPlan.tier}
       />
 
-      {/* Alerta de Guardia de Flagrancia & Casos Inmediatos (Ventana 48h) */}
+      {/* Alerta de Guardia de Flagrancia & Casos Inmediatos (Ventana 48h) - PRIORIDAD 1 */}
       <UrgentFlagrancyBanner />
-      {/* Onboarding Complete Success Toast */}
+
+      {/* Notificaciones del Sistema / Onboarding */}
       {params.onboarding === "complete" && (
-        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800 shadow-xs">
           <CheckCircle className="w-5 h-5 shrink-0 text-emerald-600" />
           <span>
             ¡Tu perfil profesional ha sido configurado con éxito! Nuestro equipo revisará tus credenciales colegiadas para habilitar la insignia de verificación completa.
@@ -169,7 +170,7 @@ export default async function LawyerDashboardPage({
 
       {/* Verification Notice Banner */}
       {lawyer.verification_status === "pending" && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-900">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 text-xs text-blue-900 shadow-xs">
           <div className="flex items-center gap-2.5">
             <Clock className="w-4 h-4 shrink-0 text-blue-600" />
             <span>
@@ -182,78 +183,162 @@ export default async function LawyerDashboardPage({
         </div>
       )}
 
-      {/* Lawyer Profile Card */}
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-sm">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <LawyerTierBadge tier={currentPlan.tier} size="sm" />
-            <span className="text-xs text-slate-500 font-mono">
-              {lawyer.bar_association} • Matrícula: {lawyer.bar_number}
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#0F172A] font-serif">
-            {lawyer.profiles?.first_name} {lawyer.profiles?.last_name}
-          </h1>
-          <p className="text-sm text-slate-600 max-w-2xl line-clamp-2">
-            {lawyer.bio}
-          </p>
-
-          <div className="flex flex-wrap items-center gap-3 pt-2 text-xs text-slate-500">
-            <span className="flex items-center gap-1 font-mono text-blue-600 font-bold">
-              <Star className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
-              {lawyer.rating_average.toFixed(1)} ({lawyer.total_reviews} valoraciones)
-            </span>
-            <span>•</span>
-            <span>{lawyer.years_experience} años de experiencia</span>
-            <span>•</span>
-            <span>Tarifa consulta: {lawyer.consultation_price ? `S/. ${lawyer.consultation_price}` : "A convenir"}</span>
-          </div>
+      {/* WORKSPACE PRINCIPAL EN 2 COLUMNAS: CASOS COMPATIBLES (SWIPE) + BARRA LATERAL DEL ABOGADO */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        {/* COLUMNA PRINCIPAL (8 COLS): SWIPE DECK & CASOS JURÍDICOS (ARRIBA, EN EL CENTRO DE ATENCIÓN) */}
+        <div className="lg:col-span-8 space-y-6">
+          <LawyerCompatibleCasesContainer
+            initialCases={displayCases}
+            hasRadarPriority={hasRadarPriority}
+          />
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-          <Link
-            href="/lawyer/subscription"
-            className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition-colors shadow-xs flex items-center gap-1.5"
-          >
-            <Zap className="w-3.5 h-3.5 fill-current text-blue-600" />
-            <span>Membresía: {matchesUsed}/{maxQuota === 9999 ? "∞" : maxQuota}</span>
-          </Link>
-          <Link
-            href="/lawyer/profile"
-            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 hover:text-[#0F172A] transition-colors shadow-sm"
-          >
-            Editar mi perfil
-          </Link>
-        </div>
-      </div>
+        {/* COLUMNA LATERAL (4 COLS): IDENTIDAD PROFESIONAL, CUPOS Y ESPECIALIDADES */}
+        <div className="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
+          {/* Card de Identidad Profesional */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-[#101828] to-[#1E3A8A] text-white flex items-center justify-center font-bold text-base shadow-sm shrink-0">
+                  {lawyer.profiles?.first_name?.[0]}
+                  {lawyer.profiles?.last_name?.[0]}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <LawyerTierBadge tier={currentPlan.tier} size="sm" />
+                  </div>
+                  <h2 className="text-lg font-bold tracking-tight text-[#0F172A] font-serif leading-snug">
+                    {lawyer.profiles?.first_name} {lawyer.profiles?.last_name}
+                  </h2>
+                  <p className="text-[11px] text-slate-500 font-mono">
+                    {lawyer.bar_association} • CAL {lawyer.bar_number}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-      {/* Especialidades Registradas */}
-      <div>
-        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 font-mono">
-          Tus Especialidades de Práctica
-        </h3>
-        <div className="flex flex-wrap gap-2">
-          {lawyerSpecialties?.map((ls: any) => (
-            <span
-              key={ls.id}
-              className={`rounded-xl border px-3.5 py-1.5 text-xs font-semibold ${
-                ls.is_primary
-                  ? "border-blue-200 bg-blue-50 text-blue-800"
-                  : "border-slate-200 bg-white text-slate-700 shadow-xs"
-              }`}
+            {/* Métricas Clave del Abogado */}
+            <div className="grid grid-cols-3 gap-2 py-3 border-y border-slate-100 text-center">
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="flex items-center justify-center gap-1 text-xs font-bold text-blue-600 font-mono">
+                  <Star className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
+                  {lawyer.rating_average.toFixed(1)}
+                </div>
+                <span className="text-[10px] text-slate-500 block mt-0.5">
+                  {lawyer.total_reviews} reseñas
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="text-xs font-bold text-slate-800 font-mono">
+                  {lawyer.years_experience} años
+                </div>
+                <span className="text-[10px] text-slate-500 block mt-0.5">
+                  Experiencia
+                </span>
+              </div>
+
+              <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                <div className="text-xs font-bold text-emerald-700 font-mono">
+                  {lawyer.consultation_price ? `S/. ${lawyer.consultation_price}` : "Acordar"}
+                </div>
+                <span className="text-[10px] text-slate-500 block mt-0.5">
+                  Consulta
+                </span>
+              </div>
+            </div>
+
+            {/* Bio Resumida */}
+            {lawyer.bio && (
+              <p className="text-xs text-slate-600 line-clamp-3 leading-relaxed">
+                {lawyer.bio}
+              </p>
+            )}
+
+            {/* Consumo de Membresía / Cuota de Matches */}
+            <div className="rounded-2xl bg-blue-50/70 border border-blue-200/80 p-3.5 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-blue-600 fill-blue-600" />
+                  Cupo de Membresía
+                </span>
+                <span className="font-mono font-bold text-blue-700">
+                  {matchesUsed} / {maxQuota === 9999 ? "∞" : maxQuota}
+                </span>
+              </div>
+              <div className="w-full bg-blue-200/60 rounded-full h-1.5 overflow-hidden">
+                <div
+                  className="bg-[#3157D5] h-1.5 rounded-full transition-all duration-500"
+                  style={{
+                    width: `${maxQuota === 9999 ? 10 : Math.min(100, (matchesUsed / maxQuota) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <span className="text-[10px] text-blue-800/80 font-mono">
+                  Plan {currentPlan.name}
+                </span>
+                <Link
+                  href="/lawyer/subscription"
+                  className="text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline"
+                >
+                  Gestionar plan →
+                </Link>
+              </div>
+            </div>
+
+            {/* Botón Editar Perfil */}
+            <Link
+              href="/lawyer/profile"
+              className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 py-2.5 px-4 text-xs font-bold text-slate-700 shadow-xs transition-colors"
             >
-              {ls.specialties?.name} ({ls.experience_years} años)
-              {ls.is_primary && " ⭐"}
-            </span>
-          ))}
+              <span>Editar mi perfil profesional</span>
+            </Link>
+          </div>
+
+          {/* Card de Especialidades de Práctica */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">
+                Especialidades de Práctica
+              </h3>
+              <span className="text-[11px] text-slate-400 font-mono">
+                {lawyerSpecialties?.length || 0} registradas
+              </span>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {lawyerSpecialties && lawyerSpecialties.length > 0 ? (
+                lawyerSpecialties.map((ls: any) => (
+                  <span
+                    key={ls.id}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-medium ${
+                      ls.is_primary
+                        ? "border-blue-200 bg-blue-50 text-blue-800 font-semibold"
+                        : "border-slate-200 bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    {ls.specialties?.name} ({ls.experience_years}a)
+                    {ls.is_primary && " ⭐"}
+                  </span>
+                ))
+              ) : (
+                <p className="text-xs text-slate-500 italic">
+                  No has registrado especialidades aún.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Radar Legal Activo Micro-card */}
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-4 text-xs text-slate-600 flex items-start gap-2.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse mt-1 shrink-0" />
+            <p className="text-[11px] leading-relaxed">
+              <strong className="text-slate-800">Radar Legal Activo:</strong> Recibes alertas prioritarias cuando justiciables publiquen casos en tus especialidades registradas.
+            </p>
+          </div>
         </div>
       </div>
-
-      {/* Casos Compatibles Feed (Swipe Micro-interactions & Urgencia) */}
-      <LawyerCompatibleCasesContainer
-        initialCases={displayCases}
-        hasRadarPriority={hasRadarPriority}
-      />
     </div>
   );
 }

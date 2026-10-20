@@ -363,7 +363,7 @@ export default function DirectInquiryContainer({
   };
 
   return (
-    <div className="w-full max-w-[1550px] mx-auto px-4 sm:px-8 lg:px-12 py-5 space-y-4 font-sans">
+    <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-5 space-y-4 font-sans">
       {/* Success Notification Banner */}
       {matchSuccessBanner && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-semibold text-emerald-800 shadow-sm animate-fade-in">
@@ -1032,45 +1032,54 @@ export default function DirectInquiryContainer({
         <main className="pt-1 pb-4">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left Column: Ficha del Caso Activo (Desktop Only) */}
-            <aside className="hidden lg:flex lg:col-span-3 xl:col-span-2 flex-col gap-4">
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
+            <aside className="hidden lg:flex lg:col-span-4 xl:col-span-3 flex-col gap-4.5">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">
                     Caso para Match
                   </span>
-                  <span className="rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-800 text-[10px] font-bold px-2 py-0.5">
+                  <span className="rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-800 text-[11px] font-bold px-2.5 py-0.5">
                     Activo
                   </span>
                 </div>
 
                 <div>
-                  <h4 className="text-sm font-bold text-slate-900 line-clamp-2">
+                  <h4 className="text-base font-bold text-slate-900 leading-snug">
                     {caseDraft.title || "Consulta Legal Directa"}
                   </h4>
-                  <p className="text-xs text-blue-600 font-semibold mt-0.5">
+                  <p className="text-xs sm:text-sm text-blue-600 font-semibold mt-1">
                     {caseDraft.specialtyName}
                   </p>
                 </div>
 
                 {caseDraft.description && (
-                  <p className="text-xs text-slate-500 line-clamp-4 leading-relaxed bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <p className="text-xs sm:text-[13px] text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100">
                     {caseDraft.description}
                   </p>
                 )}
 
-                <div className="pt-2 border-t border-slate-100 space-y-1.5 text-xs text-slate-600">
+                <div className="pt-3 border-t border-slate-100 space-y-2 text-xs sm:text-[13px] text-slate-600">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Jurisdicción:</span>
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400" />
+                      Jurisdicción:
+                    </span>
                     <span className="font-semibold text-slate-800">{caseDraft.city}</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Modalidad:</span>
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Building className="w-3.5 h-3.5 text-slate-400" />
+                      Modalidad:
+                    </span>
                     <span className="font-semibold text-slate-800">
                       {caseDraft.modality === "virtual" ? "Virtual" : "Presencial"}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">Urgencia:</span>
+                    <span className="text-slate-400 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-slate-400" />
+                      Urgencia:
+                    </span>
                     <span className="font-semibold text-slate-800 capitalize">
                       {caseDraft.urgency === "immediate"
                         ? "Flagrancia (24h)"
@@ -1089,16 +1098,16 @@ export default function DirectInquiryContainer({
                     setPendingMatchLawyer(null);
                     setIsDetailModalOpen(true);
                   }}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 hover:bg-slate-50 py-2.5 text-xs sm:text-[13px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
-                  <Pencil className="w-3.5 h-3.5 text-slate-500" />
+                  <Pencil className="w-4 h-4 text-slate-500" />
                   <span>Editar consulta</span>
                 </button>
               </div>
             </aside>
 
-            {/* Center Column: Interactive Swipe Deck (Expanded max-w-[720px]) */}
-            <div className="lg:col-span-6 xl:col-span-8 flex flex-col items-center w-full">
+            {/* Center Column: Interactive Swipe Deck */}
+            <div className="lg:col-span-8 xl:col-span-6 flex flex-col items-center w-full">
               <SwipeDeck
                 matches={filteredLawyers}
                 caseId={selectedCaseId || "direct_inquiry"}
@@ -1112,44 +1121,44 @@ export default function DirectInquiryContainer({
             </div>
 
             {/* Right Column: Favoritos Guardados (Desktop Only) */}
-            <aside className="hidden lg:flex lg:col-span-3 xl:col-span-2 flex-col gap-4">
-              <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-2xs space-y-3">
+            <aside className="hidden lg:flex lg:col-span-12 xl:col-span-3 flex-col gap-4.5">
+              <div className="rounded-2xl border border-slate-200/90 bg-white p-5 shadow-xs space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 font-mono">
                     Tus Guardados
                   </span>
-                  <span className="rounded-full bg-rose-50 border border-rose-200/60 text-rose-700 text-[10px] font-bold px-2 py-0.5">
+                  <span className="rounded-full bg-rose-50 border border-rose-200/60 text-rose-700 text-[11px] font-bold px-2.5 py-0.5">
                     {favoriteLawyers.length} guardados
                   </span>
                 </div>
 
                 {favoriteLawyers.length > 0 ? (
-                  <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
                     {favoriteLawyers.map((fav) => {
                       const lp = fav.lawyer_profiles;
                       return (
                         <div
                           key={lp.id}
-                          className="flex items-center justify-between gap-2 p-2 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/80 transition-colors"
+                          className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50 border border-slate-100 hover:bg-slate-100/90 transition-colors"
                         >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white text-xs font-bold">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white text-xs font-bold shadow-2xs">
                               {lp.profiles.first_name?.[0]}
                               {lp.profiles.last_name?.[0]}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-xs font-bold text-slate-900 truncate">
+                              <p className="text-xs sm:text-[13px] font-bold text-slate-900 truncate">
                                 {lp.profiles.first_name} {lp.profiles.last_name}
                               </p>
-                              <p className="text-[10px] text-slate-500 truncate">
-                                Reg. {lp.bar_number} · {fav.score}% afín
+                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                Reg. {lp.bar_number} · <span className="font-semibold text-blue-600">{fav.score}% afín</span>
                               </p>
                             </div>
                           </div>
                           <button
                             type="button"
                             onClick={() => setViewMode("saved")}
-                            className="text-[10px] font-bold text-blue-600 hover:underline shrink-0 cursor-pointer"
+                            className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold shrink-0 transition-colors cursor-pointer"
                           >
                             Ver
                           </button>
@@ -1158,11 +1167,11 @@ export default function DirectInquiryContainer({
                     })}
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-slate-50 p-4 border border-slate-100 text-center">
-                    <Heart className="w-5 h-5 text-slate-300 mx-auto mb-1.5" />
-                    <p className="text-xs font-semibold text-slate-700">Sin guardados aún</p>
-                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-                      Usa el botón &ldquo;Guardar&rdquo; en la tarjeta para reservar perfiles y compararlos luego.
+                  <div className="rounded-xl bg-slate-50 p-5 border border-slate-100 text-center">
+                    <Heart className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs sm:text-sm font-semibold text-slate-700">Sin guardados aún</p>
+                    <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                      Usa el botón &ldquo;Guardar&rdquo; o la tecla <kbd className="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] font-bold">S</kbd> para reservar perfiles y compararlos.
                     </p>
                   </div>
                 )}
@@ -1170,9 +1179,9 @@ export default function DirectInquiryContainer({
                 <button
                   type="button"
                   onClick={() => setViewMode("saved")}
-                  className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 py-2 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 hover:bg-slate-50 py-2.5 text-xs sm:text-[13px] font-semibold text-slate-700 transition-colors cursor-pointer"
                 >
-                  <List className="w-3.5 h-3.5 text-slate-500" />
+                  <List className="w-4 h-4 text-slate-500" />
                   <span>Comparar guardados</span>
                 </button>
               </div>

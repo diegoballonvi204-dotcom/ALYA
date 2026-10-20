@@ -120,3 +120,75 @@ body {
   outline: 2px solid #3157D5;
   outline-offset: 2px;
 }
+
+/* Navbar 100% integrado y transparente en la Landing Page (Cero líneas de separación) */
+.theme-navbar-landing header {
+  background-color: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.theme-navbar-landing .logo-default {
+  display: none !important;
+}
+
+.theme-navbar-landing .logo-inverted {
+  display: block !important;
+}
+
+.theme-navbar-landing header nav a {
+  color: #E2E8F0 !important;
+  font-weight: 500 !important;
+}
+
+.theme-navbar-landing header nav a:hover {
+  color: #FFFFFF !important;
+}
+
+.theme-navbar-landing header .nav-btn-login {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  color: #FFFFFF !important;
+  box-shadow: none !important;
+}
+
+.theme-navbar-landing header .nav-btn-login:hover {
+  background-color: rgba(255, 255, 255, 0.18) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+.theme-navbar-landing header .nav-btn-login svg {
+  color: #93C5FD !important;
+}
+
+.theme-navbar-landing header .nav-btn-register {
+  background-color: #FFFFFF !important;
+  color: #070B14 !important;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+
+.theme-navbar-landing header .nav-btn-register:hover {
+  background-color: #F1F5F9 !important;
+}
+
+.theme-navbar-landing header .nav-btn-register svg {
+  color: #1E3A8A !important;
+}
+
+.theme-navbar-landing header button[aria-label="Abrir menú"] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: #FFFFFF !important;
+}
+
+
+
+

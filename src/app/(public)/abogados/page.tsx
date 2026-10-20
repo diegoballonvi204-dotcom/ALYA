@@ -24,7 +24,7 @@ export default async function PublicLawyersDirectoryPage() {
   return (
     <div className="min-h-screen bg-slate-50/70">
       {/* Directorio Interactivo */}
-      <main className="w-full max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-6">
+      <main className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-6">
         <LawyerDirectoryView
           initialLawyers={lawyersRes.lawyers || []}
           specialties={specsRes.specialties || []}

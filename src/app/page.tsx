@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -9,6 +10,7 @@ import {
   Zap,
   Lock,
   ArrowRight,
+  ArrowUpRight,
   Briefcase,
   CheckCircle2,
   Sparkles,
@@ -24,8 +26,8 @@ import {
   HelpCircle,
   Clock,
   Award,
+  Check,
 } from "lucide-react";
-import { HeroCrystalVisual } from "@/components/home/HeroCrystalVisual";
 import { MatchingAlgorithmVisual } from "@/components/home/MatchingAlgorithmVisual";
 import { GsapScrollController } from "@/components/home/GsapScrollController";
 import { MagneticButton } from "@/components/home/MagneticButton";
@@ -123,62 +125,42 @@ export default async function HomePage() {
       <div className="gsap-parallax-orb absolute top-80 right-0 w-[550px] h-[550px] bg-gradient-to-br from-slate-900/5 to-transparent pointer-events-none -z-10 blur-3xl" />
 
       {/* ========================================================================= */}
-      {/* 1. HERO SECTION: ESCENA JURÍDICA INTERACTIVA ("Legal Motion Field")       */}
+      {/* 1. HERO SECTION: CINEMATIC LADY JUSTICE (Imagen original)                 */}
       {/* ========================================================================= */}
-      <section className="relative mx-auto max-w-7xl px-4 pt-10 pb-16 sm:px-6 lg:px-8 sm:pt-16 sm:pb-24">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-          {/* Left Column: Value Proposition & CTAs */}
-          <div className="lg:col-span-7 space-y-6 text-center lg:text-left">
-            {/* Institution Badge */}
-            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3.5 py-1.5 text-xs font-bold text-[#101828] border border-slate-200/90 shadow-xs font-mono">
-              <span className="flex h-2 w-2 rounded-full bg-[#3157D5]" />
-              <span>Red LegalTech de Alta Precisión • Perú</span>
-            </div>
+      <section className="relative w-full min-h-[90vh] lg:min-h-[95vh] flex items-center overflow-hidden bg-black pt-20">
+        {/* Imagen de fondo original de la Dama de la Justicia: Posicionada a la izquierda, nítida y visible */}
+        <div className="absolute inset-y-0 left-0 w-full sm:w-[85%] md:w-[75%] lg:w-[65%] xl:w-[58%] h-full z-0 pointer-events-none">
+          <Image
+            src="/images/lady-justice.jpg"
+            alt="Dama de la Justicia - ALYA LegalTech"
+            fill
+            priority
+            className="object-contain object-left filter brightness-105 contrast-[1.08]"
+            sizes="(max-width: 1024px) 100vw, 60vw"
+          />
+        </div>
 
-            {/* Main Headline - Editorial Typography with Serif Accents */}
-            <h1 className="text-3xl sm:text-5xl lg:text-[56px] font-extrabold tracking-tight text-[#101828] leading-[1.14]">
+        {/* Degradado lateral suave para legibilidad del texto en la derecha sin apagar la estatua a la izquierda */}
+        <div className="absolute inset-0 bg-gradient-to-l from-black via-black/80 md:via-black/40 to-transparent pointer-events-none z-0" />
+        
+        {/* Transición inferior suave hacia la Escena 1 sin líneas de corte */}
+        <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-[#101828] via-[#101828]/60 to-transparent pointer-events-none z-0" />
+
+        {/* Contenido Editorial Flotante a la Derecha */}
+        <div className="relative z-10 w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-16 sm:py-24 flex flex-col justify-center items-end min-h-[85vh] lg:min-h-[90vh]">
+          <div className="w-full lg:w-[56%] xl:w-[52%] ml-auto space-y-8">
+            {/* Gran Título Editorial con Serif Clásica */}
+            <h1 className="text-4xl sm:text-6xl lg:text-[70px] xl:text-[80px] font-extrabold tracking-tight text-white leading-[1.08] font-serif drop-shadow-md">
               El respaldo jurídico que necesitas.{" "}
-              <span className="font-serif italic font-normal text-gradient-sapphire text-[1.05em] block sm:inline">
+              <span className="font-serif italic font-normal text-blue-200 block sm:inline">
                 La conexión que estabas buscando.
               </span>
             </h1>
 
-            {/* Concise Editorial Subtitle */}
-            <p className="text-base sm:text-lg text-slate-600 max-w-xl mx-auto lg:mx-0 leading-relaxed font-sans font-normal">
-              Encuentra abogados compatibles con tu caso, compara sus especialidades y conecta con el profesional adecuado para ti.
+            {/* Subtítulo */}
+            <p className="text-base sm:text-xl text-slate-200 max-w-2xl leading-relaxed font-sans font-light drop-shadow-sm">
+              Encuentra abogados compatibles con tu caso, compara sus especialidades y conecta con el profesional adecuado bajo colegiatura auditada oficial.
             </p>
-
-            {/* High-End CTAs with Magnetic Primary Interaction */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-              <MagneticButton>
-                <Link
-                  href="/dashboard"
-                  className="w-full sm:w-auto group inline-flex items-center justify-center gap-3 rounded-xl bg-[#101828] px-8 py-4 text-sm sm:text-base font-bold text-white shadow-xl shadow-slate-900/20 hover:bg-[#1E293B] hover:-translate-y-0.5 transition-all border border-slate-800"
-                >
-                  <span>Encontrar mi abogado</span>
-                  <ArrowRight className="w-4 h-4 text-[#4777F5] transition-transform group-hover:translate-x-1" />
-                </Link>
-              </MagneticButton>
-
-              <Link
-                href="#como-funciona"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 rounded-xl luxury-glass px-7 py-4 text-sm sm:text-base font-semibold text-[#101828] hover:border-[#3157D5]/40 hover:bg-white transition-all shadow-sm"
-              >
-                <HelpCircle className="w-4.5 h-4.5 text-[#3157D5]" />
-                <span>Descubrir cómo funciona</span>
-              </Link>
-            </div>
-
-            {/* Scroll Storytelling Indicator */}
-            <div className="pt-6 sm:pt-10 flex items-center justify-center lg:justify-start gap-2.5 text-xs font-mono text-slate-500">
-              <span className="inline-block w-2 h-2 rounded-full bg-[#4777F5] animate-pulse" />
-              <span>Desplaza para recorrer el proceso de conexión jurídica</span>
-            </div>
-          </div>
-
-          {/* Right Column: Real-Time WebGL 3D Legal Motion Field Visual */}
-          <div className="lg:col-span-5 flex justify-center">
-            <HeroCrystalVisual />
           </div>
         </div>
       </section>
@@ -186,7 +168,7 @@ export default async function HomePage() {
       {/* ========================================================================= */}
       {/* ESCENA 1: EL PROBLEMA (El Laberinto Tradicional vs El Estándar ALYA)       */}
       {/* ========================================================================= */}
-      <section className="py-16 sm:py-24 border-t border-slate-200/80 bg-[#101828] text-white relative overflow-hidden">
+      <section className="py-20 sm:py-28 bg-[#101828] text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="text-center max-w-2xl mx-auto mb-14 space-y-3">

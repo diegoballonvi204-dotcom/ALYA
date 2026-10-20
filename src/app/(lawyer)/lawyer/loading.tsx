@@ -1,6 +1,6 @@
 export default function LawyerLoading() {
   return (
-    <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8 animate-pulse">
+    <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8 animate-pulse">
       {/* Header Skeleton */}
       <div className="p-8 rounded-2xl bg-white border border-slate-200 shadow-xs space-y-3">
         <div className="h-3 w-32 bg-slate-200 rounded-md" />

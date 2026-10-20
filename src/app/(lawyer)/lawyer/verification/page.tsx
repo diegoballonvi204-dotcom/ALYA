@@ -46,7 +46,7 @@ export default async function LawyerVerificationPage() {
   const docsMetadata = (verification?.documents_metadata as any) || {};
 
   return (
-    <div className="w-full max-w-[1700px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
+    <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
       {/* Navigation */}
       <div className="flex items-center justify-between">
         <Link
