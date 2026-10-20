@@ -27,6 +27,20 @@ export default async function LawyerProfilePage() {
     redirect("/onboarding/lawyer");
   }
 
+  // 1.1 Validar que la cuenta esté aprobada y activada
+  const { data: verification } = await supabase
+    .from("verifications")
+    .select("is_code_verified")
+    .eq("lawyer_id", lawyer.id)
+    .maybeSingle();
+
+  const isApproved = lawyer.verification_status === "verified";
+  const isActivated = lawyer.is_activated === true || verification?.is_code_verified === true;
+
+  if (!isApproved || !isActivated) {
+    redirect("/lawyer/dashboard");
+  }
+
   // 2. Obtener especialidades del abogado
   const { data: lawyerSpecialties } = await supabase
     .from("lawyer_specialties")

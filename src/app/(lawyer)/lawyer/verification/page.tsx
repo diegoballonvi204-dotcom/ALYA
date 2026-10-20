@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import VerificationForm from "@/components/lawyer/VerificationForm";
 import { ShieldCheck, FileCheck, Clock, AlertCircle, ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
+import LawyerActivationCodeForm from "@/components/lawyer/LawyerActivationCodeForm";
 
 export default async function LawyerVerificationPage() {
   const supabase = await createClient();
@@ -23,6 +24,7 @@ export default async function LawyerVerificationPage() {
       bar_association,
       bar_number,
       verification_status,
+      is_activated,
       profiles (
         first_name,
         last_name
@@ -38,15 +40,19 @@ export default async function LawyerVerificationPage() {
   // 2. Obtener registro de verificación si existe
   const { data: verification } = await supabase
     .from("verifications")
-    .select("documents_metadata, rejection_reason")
+    .select("documents_metadata, rejection_reason, is_code_verified")
     .eq("lawyer_id", lawyer.id)
     .maybeSingle();
 
   const status = lawyer.verification_status;
   const docsMetadata = (verification?.documents_metadata as any) || {};
+  const isPendingActivation = (status === "verified" || (status as string) === "approved") && (!lawyer.is_activated || !verification?.is_code_verified);
 
   return (
     <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
+      {isPendingActivation && (
+        <LawyerActivationCodeForm lawyerEmail={user.email || ""} />
+      )}
       {/* Navigation */}
       <div className="flex items-center justify-between">
         <Link

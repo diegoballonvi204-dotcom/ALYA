@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { registerAction } from "@/actions/auth.actions";
 import { Lock, Mail, User, ShieldCheck, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { GoogleAuthButton } from "./GoogleAuthButton";
 
 interface RegisterFormProps {
   initialRole: "client" | "lawyer";
@@ -85,6 +86,17 @@ export function RegisterForm({ initialRole }: RegisterFormProps) {
             </span>
           </button>
         </div>
+      </div>
+
+      <div className="pt-1">
+        <GoogleAuthButton role={role} mode="signup" />
+      </div>
+
+      <div className="relative flex items-center justify-center my-4">
+        <div className="border-t border-slate-200 w-full" />
+        <span className="bg-white px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider relative shrink-0">
+          o regístrate con correo
+        </span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

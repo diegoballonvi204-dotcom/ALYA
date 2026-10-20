@@ -636,6 +636,8 @@ export type Database = {
           verified_at: string | null
           virtual_attention: boolean
           years_experience: number
+          activation_code: string | null
+          is_activated: boolean
         }
         Insert: {
           address_office?: string | null
@@ -658,6 +660,8 @@ export type Database = {
           verified_at?: string | null
           virtual_attention?: boolean
           years_experience?: number
+          activation_code?: string | null
+          is_activated?: boolean
         }
         Update: {
           address_office?: string | null
@@ -680,6 +684,8 @@ export type Database = {
           verified_at?: string | null
           virtual_attention?: boolean
           years_experience?: number
+          activation_code?: string | null
+          is_activated?: boolean
         }
         Relationships: [
           {
@@ -1370,6 +1376,8 @@ export type Database = {
           rejection_reason: string | null
           updated_at: string
           verified_by: string | null
+          activation_code: string | null
+          is_code_verified: boolean
         }
         Insert: {
           bar_status?: Database["public"]["Enums"]["verification_status"]
@@ -1383,6 +1391,8 @@ export type Database = {
           rejection_reason?: string | null
           updated_at?: string
           verified_by?: string | null
+          activation_code?: string | null
+          is_code_verified?: boolean
         }
         Update: {
           bar_status?: Database["public"]["Enums"]["verification_status"]
@@ -1396,6 +1406,8 @@ export type Database = {
           rejection_reason?: string | null
           updated_at?: string
           verified_by?: string | null
+          activation_code?: string | null
+          is_code_verified?: boolean
         }
         Relationships: [
           {

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { loginAction } from "@/actions/auth.actions";
 import { Lock, Mail, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { GoogleAuthButton } from "./GoogleAuthButton";
 
 export function LoginForm() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -28,18 +29,28 @@ export function LoginForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      {errorMessage && (
-        <div className="rounded-xl border border-slate-300 bg-slate-100/90 p-3 text-xs text-slate-800 font-medium flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
-          <span>{errorMessage}</span>
-        </div>
-      )}
+    <div className="space-y-4">
+      <GoogleAuthButton mode="login" />
 
-      <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
-          Correo Electrónico
-        </label>
+      <div className="relative flex items-center justify-center my-4">
+        <div className="border-t border-slate-200 w-full" />
+        <span className="bg-white px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider relative shrink-0">
+          o ingresa con tu correo
+        </span>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {errorMessage && (
+          <div className="rounded-xl border border-slate-300 bg-slate-100/90 p-3 text-xs text-slate-800 font-medium flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+            Correo Electrónico
+          </label>
         <div className="relative">
           <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
             <Mail className="w-4 h-4" />
@@ -97,5 +108,6 @@ export function LoginForm() {
         </button>
       </div>
     </form>
-  );
+  </div>
+);
 }
