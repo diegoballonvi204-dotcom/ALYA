@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { loginAction } from "@/actions/auth.actions";
 import { Lock, Mail, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import { GoogleAuthButton } from "./GoogleAuthButton";
@@ -48,45 +49,59 @@ export function LoginForm() {
         )}
 
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+          <label
+            htmlFor="login-email"
+            className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide"
+          >
             Correo Electrónico
           </label>
-        <div className="relative">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-            <Mail className="w-4 h-4" />
-          </span>
-          <input
-            type="email"
-            name="email"
-            required
-            placeholder="usuario@alya.pe"
-            className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
-          />
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+              <Mail className="w-4 h-4" />
+            </span>
+            <input
+              id="login-email"
+              type="email"
+              name="email"
+              required
+              autoComplete="email"
+              placeholder="usuario@alya.pe"
+              className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
+            />
+          </div>
         </div>
-      </div>
 
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-            Contraseña
-          </label>
-          <a href="#" className="text-xs text-[#2563EB] hover:text-[#1E3A8A] font-semibold hover:underline transition-colors">
-            ¿Olvidaste tu clave?
-          </a>
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label
+              htmlFor="login-password"
+              className="text-xs font-bold text-slate-700 uppercase tracking-wide"
+            >
+              Contraseña
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-[#2563EB] hover:text-[#1E3A8A] font-semibold hover:underline transition-colors"
+            >
+              ¿Olvidaste tu clave?
+            </Link>
+          </div>
+          <div className="relative">
+            <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
+              <Lock className="w-4 h-4" />
+            </span>
+            <input
+              id="login-password"
+              type="password"
+              name="password"
+              required
+              minLength={6}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
+            />
+          </div>
         </div>
-        <div className="relative">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-            <Lock className="w-4 h-4" />
-          </span>
-          <input
-            type="password"
-            name="password"
-            required
-            placeholder="••••••••"
-            className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
-          />
-        </div>
-      </div>
 
       <div className="pt-2">
         <button

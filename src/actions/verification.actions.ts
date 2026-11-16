@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import {
   UploadVerificationDocsSchema,
@@ -22,6 +23,17 @@ export async function submitLawyerDocumentsAction(formData: UploadVerificationDo
 
   if (!user) {
     return { error: "No autenticado" };
+  }
+
+  const pathsToValidate = [
+    validated.data.dniFrontPath,
+    validated.data.dniBackPath,
+    validated.data.barCardPath,
+    validated.data.habilitationCertPath,
+  ].filter(Boolean) as string[];
+
+  if (pathsToValidate.some((p) => p.includes("..") || !p.startsWith(`${user.id}/`))) {
+    return { error: "Ruta de archivo de verificación no autorizada." };
   }
 
   // 1. Validar que el abogado le pertenece al usuario
@@ -82,6 +94,22 @@ export async function getVerificationSignedUrlAction(filePath: string) {
     return { error: "No autenticado" };
   }
 
+  if (!filePath || filePath.includes("..") || filePath.startsWith("/")) {
+    return { error: "Ruta de archivo inválida." };
+  }
+
+  if (!filePath.startsWith(`${user.id}/`)) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role !== "admin" && profile?.role !== "verifier") {
+      return { error: "No tienes autorización para acceder a este documento." };
+    }
+  }
+
   const { data, error } = await supabase.storage
     .from("verification-documents")
     .createSignedUrl(filePath, 3600); // 60 minutos de vigencia
@@ -136,9 +164,9 @@ export async function resolveVerificationAdminAction(params: ResolveVerification
     return { error: `Error resolviendo verificación: ${error.message}` };
   }
 
-  // 3. Si fue aprobado ('verified'), generar código de activación único y enviar por correo
+  // 3. Si fue aprobado ('verified'), generar código de activación único CSPRNG y enviar por correo
   if (validated.data.decision === "verified") {
-    const activationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const activationCode = crypto.randomInt(100000, 1000000).toString();
 
     // Obtener lawyer_id de la verificación
     const { data: verifRecord } = await supabase
@@ -196,11 +224,11 @@ export async function resolveVerificationAdminAction(params: ResolveVerification
  * Validar el código de activación de 6 dígitos que el abogado recibió por correo
  */
 export async function verifyLawyerActivationCodeAction(code: string) {
-  if (!code || code.trim().length !== 6) {
+  const cleanCode = (code || "").trim();
+  if (!/^\d{6}$/.test(cleanCode)) {
     return { error: "El código de verificación debe tener 6 dígitos numéricos." };
   }
 
-  const cleanCode = code.trim();
   const supabase = await createClient();
   const {
     data: { user },
@@ -225,15 +253,20 @@ export async function verifyLawyerActivationCodeAction(code: string) {
     return { error: "Tu documentación aún no ha sido aprobada por la administración." };
   }
 
-  if (lawyer.activation_code !== cleanCode) {
+  const storedCode = String(lawyer.activation_code || "");
+  const cleanBuf = Buffer.from(cleanCode, "utf8");
+  const storedBuf = Buffer.from(storedCode, "utf8");
+
+  if (!storedCode || cleanBuf.length !== storedBuf.length || !crypto.timingSafeEqual(cleanBuf, storedBuf)) {
     return { error: "El código ingresado es incorrecto. Revisa tu correo electrónico." };
   }
 
-  // 2. Activar perfil y marcar verificación como completada
+  // 2. Activar perfil, invalidar código usado y marcar verificación como completada
   await supabase
     .from("lawyer_profiles")
     .update({
       is_activated: true,
+      activation_code: null,
     } as any)
     .eq("id", lawyer.id);
 
@@ -241,6 +274,7 @@ export async function verifyLawyerActivationCodeAction(code: string) {
     .from("verifications")
     .update({
       is_code_verified: true,
+      activation_code: null,
     } as any)
     .eq("lawyer_id", lawyer.id);
 
@@ -278,7 +312,7 @@ export async function resendLawyerActivationCodeAction() {
     return { error: "Tus documentos aún están en proceso de revisión." };
   }
 
-  const newCode = Math.floor(100000 + Math.random() * 900000).toString();
+  const newCode = crypto.randomInt(100000, 1000000).toString();
 
   await supabase
     .from("lawyer_profiles")

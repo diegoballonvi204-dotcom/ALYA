@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import ClientProfileEditor from "@/components/client/ClientProfileEditor";
 import { ClientPrivacySection } from "@/components/profile/ClientPrivacySection";
 import Link from "next/link";
 import { User, ArrowLeft, FolderKanban } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Mi Perfil de Cliente | ALYA Perú",
+  description:
+    "Actualiza tus datos de contacto, documento de identidad y preferencias de privacidad en ALYA Perú.",
+};
 
 export default async function ClientProfilePage() {
   const supabase = await createClient();

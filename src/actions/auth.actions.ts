@@ -104,7 +104,8 @@ export async function completeGoogleSignupAction(formData: FormData) {
   
   const firstName = String(rawData.firstName || "").trim();
   const lastName = String(rawData.lastName || "").trim();
-  const role = String(rawData.role || "client") as "client" | "lawyer";
+  const rawRole = String(rawData.role || "client").trim().toLowerCase();
+  const role: "client" | "lawyer" = rawRole === "lawyer" ? "lawyer" : "client";
   const password = String(rawData.password || "");
   const confirmPassword = String(rawData.confirmPassword || "");
 
@@ -136,10 +137,21 @@ export async function completeGoogleSignupAction(formData: FormData) {
     return { error: `Error estableciendo contraseña: ${pwdErr.message}` };
   }
 
-  // 2. Crear el registro en profiles
+  // 2. Preservar roles privilegiados existentes si ya tenía perfil y crear/actualizar en profiles
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const finalRole =
+    existingProfile?.role === "admin" || existingProfile?.role === "verifier"
+      ? existingProfile.role
+      : role;
+
   const { error: profileErr } = await supabase.from("profiles").upsert({
     id: user.id,
-    role,
+    role: finalRole,
     first_name: firstName,
     last_name: lastName,
     city: "Lima",
@@ -155,6 +167,40 @@ export async function completeGoogleSignupAction(formData: FormData) {
     redirect("/onboarding/lawyer");
   } else {
     redirect("/dashboard");
+  }
+}
+
+export async function requestPasswordResetAction(formData: FormData) {
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { error: "Ingresa un correo electrónico válido." };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { headers } = await import("next/headers");
+    const hdrs = await headers();
+    const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "";
+    const proto = hdrs.get("x-forwarded-proto") || "https";
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (host ? `${host.includes("localhost") ? "http" : proto}://${host}` : "");
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: siteUrl ? `${siteUrl}/login` : undefined,
+    });
+
+    if (error) {
+      return { error: error.message };
+    }
+
+    return {
+      success: true,
+      message:
+        "Si el correo existe en nuestra plataforma, recibirás un enlace en pocos minutos para restablecer tu contraseña.",
+    };
+  } catch (err: any) {
+    return { error: err?.message || "Error al solicitar recuperación de contraseña." };
   }
 }
 

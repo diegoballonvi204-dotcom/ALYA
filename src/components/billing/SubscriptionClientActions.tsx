@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { QrCode, ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, CreditCard, QrCode } from "lucide-react";
 import ManualPaymentModal from "./ManualPaymentModal";
 
 interface SubscriptionClientActionsProps {
@@ -9,6 +9,8 @@ interface SubscriptionClientActionsProps {
   planName: string;
   tier: "starter" | "pro" | "elite";
   isCurrentPlan: boolean;
+  initialTab?: "card" | "transfer";
+  buttonLabel?: string;
 }
 
 export default function SubscriptionClientActions({
@@ -16,6 +18,8 @@ export default function SubscriptionClientActions({
   planName,
   tier,
   isCurrentPlan,
+  initialTab = "card",
+  buttonLabel,
 }: SubscriptionClientActionsProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -32,13 +36,20 @@ export default function SubscriptionClientActions({
       <button
         type="button"
         onClick={() => setIsModalOpen(true)}
-        className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all shadow-sm ${
-          tier === "pro"
+        className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 text-xs font-bold transition-all shadow-sm cursor-pointer ${
+          initialTab === "transfer"
+            ? "border border-purple-300 bg-white hover:bg-purple-50 text-purple-800"
+            : tier === "pro"
             ? "bg-blue-600 hover:bg-blue-700 text-white"
-            : "border border-slate-300 bg-slate-50 hover:bg-slate-100 text-[#0F172A]"
+            : "border border-slate-300 bg-slate-900 hover:bg-slate-800 text-white"
         }`}
       >
-        <span>Activar {tier === "pro" ? "ALYA Pro" : "Plan Élite"}</span>
+        {initialTab === "transfer" ? (
+          <QrCode className="w-3.5 h-3.5" />
+        ) : (
+          <CreditCard className="w-3.5 h-3.5" />
+        )}
+        <span>{buttonLabel || `Activar ${tier === "pro" ? "ALYA Pro" : "Plan Élite"}`}</span>
         <ArrowRight className="w-3.5 h-3.5" />
       </button>
 
@@ -46,6 +57,7 @@ export default function SubscriptionClientActions({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         initialPlanId={planId}
+        initialTab={initialTab}
       />
     </>
   );

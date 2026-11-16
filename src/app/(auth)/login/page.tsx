@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle, UserPlus, CheckCircle2 } from "lucide-react";
 import { LoginForm } from "@/components/forms/LoginForm";
+
+export const metadata: Metadata = {
+  title: "Iniciar Sesión | ALYA Perú",
+  description:
+    "Ingresa a tu cuenta de cliente o abogado colegiado en ALYA LegalTech Perú.",
+};
 
 export default async function LoginPage({
   searchParams,

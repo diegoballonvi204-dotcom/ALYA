@@ -89,6 +89,7 @@ export function DocumentAiAnalysisModal({
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "America/Lima",
       })
     : "Recién procesado";
 
@@ -204,6 +205,7 @@ export function DocumentAiAnalysisModal({
                               {new Date(dl.deadlineDate).toLocaleDateString("es-PE", {
                                 day: "2-digit",
                                 month: "short",
+                                timeZone: "America/Lima",
                               })}
                             </span>
                           </div>

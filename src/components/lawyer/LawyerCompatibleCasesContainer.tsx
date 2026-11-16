@@ -42,14 +42,37 @@ export default function LawyerCompatibleCasesContainer({
   hasRadarPriority = false,
 }: LawyerCompatibleCasesContainerProps) {
   // Mode toggle: Default is 'swipe' for rapid micro-interactions!
-  const [viewMode, setViewMode] = useState<"swipe" | "list">("swipe");
+  const [viewMode, setViewMode] = useState<"swipe" | "list" | "matched">("swipe");
+
+  // Track already-postulated/matched case IDs so they leave the swipe deck permanently (H18)
+  const [postulatedIds, setPostulatedIds] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    initialCases.forEach((c) => {
+      if (c.matchInfo?.lawyer_interest || c.matchInfo?.status === "matched") {
+        s.add(c.caseItem.id);
+      }
+    });
+    return s;
+  });
+
+  useEffect(() => {
+    const s = new Set<string>();
+    initialCases.forEach((c) => {
+      if (c.matchInfo?.lawyer_interest || c.matchInfo?.status === "matched") {
+        s.add(c.caseItem.id);
+      }
+    });
+    setPostulatedIds(s);
+  }, [initialCases]);
 
   // Filters state for procedural urgency & jurisdiction
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
   const [selectedCity, setSelectedCity] = useState<string>("all");
 
   // Deck state
-  const [deck, setDeck] = useState<LawyerCaseEntry[]>(initialCases);
+  const [deck, setDeck] = useState<LawyerCaseEntry[]>(() =>
+    initialCases.filter((c) => !c.matchInfo?.lawyer_interest && c.matchInfo?.status !== "matched")
+  );
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Bilateral match modal state
@@ -69,6 +92,17 @@ export default function LawyerCompatibleCasesContainer({
   const [showBriefModal, setShowBriefModal] = useState(false);
   const [aiBrief, setAiBrief] = useState<LawyerAIBriefResult | null>(null);
   const [isBriefLocked, setIsBriefLocked] = useState(false);
+  const [briefError, setBriefError] = useState<string | null>(null);
+
+  const pendingCases = useMemo(
+    () => initialCases.filter((c) => !postulatedIds.has(c.caseItem.id)),
+    [initialCases, postulatedIds]
+  );
+
+  const matchedCases = useMemo(
+    () => initialCases.filter((c) => postulatedIds.has(c.caseItem.id)),
+    [initialCases, postulatedIds]
+  );
 
   // Unique cities list
   const availableCities = useMemo(() => {
@@ -79,9 +113,9 @@ export default function LawyerCompatibleCasesContainer({
     return Array.from(set).sort();
   }, [initialCases]);
 
-  // Real-time filtering
+  // Real-time filtering for pending discovery deck/list
   const filteredCases = useMemo(() => {
-    let result = [...initialCases];
+    let result = [...pendingCases];
 
     if (selectedUrgency !== "all") {
       result = result.filter((c) => c.caseItem.urgency === selectedUrgency);
@@ -94,7 +128,7 @@ export default function LawyerCompatibleCasesContainer({
     }
 
     return result;
-  }, [initialCases, selectedUrgency, selectedCity]);
+  }, [pendingCases, selectedUrgency, selectedCity]);
 
   // Sync deck when filteredCases change
   useEffect(() => {
@@ -108,21 +142,9 @@ export default function LawyerCompatibleCasesContainer({
       const current = deck[0];
       const interested = direction === "right";
 
-      // Optimistic removal
+      // Optimistic removal from visible deck
       setDeck((prev) => prev.slice(1));
       setIsProcessing(true);
-
-      // Si el abogado da like a la derecha (Postular Interés),
-      // mostramos el modal de conexión bilateral de forma inmediata (0ms de latencia)
-      if (interested) {
-        setMatchedCase({
-          lawyerName: "Justiciable Interesado",
-          lawyerBar: "Identidad Desbloqueada con Éxito",
-          title: current.caseItem.title,
-          conversationId: current.matchInfo?.conversation_id || null,
-          caseId: current.caseItem.id,
-        });
-      }
 
       try {
         const res = await lawyerInteractMatchAction({
@@ -132,6 +154,7 @@ export default function LawyerCompatibleCasesContainer({
         });
 
         if (res?.error === "QUOTA_EXCEEDED") {
+          setDeck((prev) => [current, ...prev]);
           setMatchedCase(null);
           setQuotaData({
             currentUsage: (res.quotaInfo as any)?.current_usage || 3,
@@ -140,23 +163,24 @@ export default function LawyerCompatibleCasesContainer({
           setShowUpgradeModal(true);
         } else if (res?.error) {
           console.error("Error al registrar interacción del abogado:", res.error);
+          setDeck((prev) => [current, ...prev]);
+        } else if (res?.success) {
           if (interested) {
-            setMatchedCase(null);
+            setPostulatedIds((prev) => new Set(prev).add(current.caseItem.id));
+            if (res.isMatched) {
+              setMatchedCase({
+                lawyerName: "Justiciable Interesado",
+                lawyerBar: "Identidad Desbloqueada con Éxito",
+                title: current.caseItem.title,
+                conversationId: res.conversationId,
+                caseId: current.caseItem.id,
+              });
+            }
           }
-        } else if (res?.success && res.isMatched) {
-          setMatchedCase({
-            lawyerName: "Justiciable Interesado",
-            lawyerBar: "Identidad Desbloqueada con Éxito",
-            title: current.caseItem.title,
-            conversationId: res.conversationId,
-            caseId: current.caseItem.id,
-          });
         }
       } catch (err) {
         console.error("Error al registrar interacción del abogado:", err);
-        if (interested) {
-          setMatchedCase(null);
-        }
+        setDeck((prev) => [current, ...prev]);
       } finally {
         setIsProcessing(false);
       }
@@ -166,9 +190,17 @@ export default function LawyerCompatibleCasesContainer({
 
   const handleOpenAiBrief = async (c: LawyerCaseItem) => {
     setSelectedCaseForBrief(c);
+    setBriefError(null);
     setLoadingBrief(true);
     try {
-      const res = await getLawyerCaseAIBriefAction(c.id);
+      const res = await getLawyerCaseAIBriefAction(c.id, {
+        title: c.title,
+        description: c.description,
+        specialtyName: c.specialties?.name,
+        city: c.city,
+        modality: c.modality || "virtual",
+        urgency: c.urgency,
+      });
       if (!res.success && res.isLocked) {
         setIsBriefLocked(true);
         setAiBrief(null);
@@ -177,9 +209,12 @@ export default function LawyerCompatibleCasesContainer({
         setIsBriefLocked(false);
         setAiBrief(res.brief);
         setShowBriefModal(true);
+      } else {
+        setBriefError(res.error || "No se pudo generar el informe dogmático para este caso.");
       }
     } catch (err) {
       console.error("Error cargando brief IA:", err);
+      setBriefError("Error de conexión al analizar el caso con IA. Intenta nuevamente.");
     } finally {
       setLoadingBrief(false);
     }
@@ -255,10 +290,40 @@ export default function LawyerCompatibleCasesContainer({
             }`}
           >
             <List className="w-3.5 h-3.5 text-blue-400" />
-            <span>Lista / Cuadrícula ({filteredCases.length})</span>
+            <span>Pendientes ({filteredCases.length})</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === "matched"}
+            onClick={() => setViewMode("matched")}
+            className={`inline-flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+              viewMode === "matched"
+                ? "bg-[#101828] text-white shadow-xs"
+                : "text-[#667085] hover:text-[#101828]"
+            }`}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            <span>En Match ({matchedCases.length})</span>
           </button>
         </div>
       </div>
+
+      {briefError && (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{briefError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setBriefError(null)}
+            className="text-rose-800 hover:underline cursor-pointer font-bold"
+          >
+            Cerrar
+          </button>
+        </div>
+      )}
 
       {/* Quick Filter Ribbon (Etapas Procesales & Sede) */}
       <div className="flex flex-wrap items-center justify-between gap-2.5 rounded-2xl border border-[#E6EAF0] bg-white px-3.5 py-2 shadow-xs text-xs">
@@ -315,7 +380,40 @@ export default function LawyerCompatibleCasesContainer({
       </div>
 
       {/* Main Viewport */}
-      {filteredCases.length > 0 ? (
+      {viewMode === "matched" ? (
+        matchedCases.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {matchedCases.map((item) => (
+              <CompatibleCaseCard
+                key={item.caseItem.id}
+                caseItem={item.caseItem}
+                matchInfo={item.matchInfo}
+                isRadarVip={item.isRadarVip}
+                onMatched={(convId) => {
+                  setPostulatedIds((prev) => new Set(prev).add(item.caseItem.id));
+                  setMatchedCase({
+                    lawyerName: "Justiciable Interesado",
+                    lawyerBar: "Identidad Desbloqueada con Éxito",
+                    title: item.caseItem.title,
+                    conversationId: convId,
+                    caseId: item.caseItem.id,
+                  });
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center shadow-xs">
+            <CheckCircle2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm font-bold text-[#0F172A] font-serif">
+              Aún no tienes casos postulados o en match
+            </p>
+            <p className="text-xs text-slate-500 mt-1">
+              Cuando postules tu interés en una consulta pendiente, aparecerá aquí con su acceso directo al chat.
+            </p>
+          </div>
+        )
+      ) : filteredCases.length > 0 ? (
         viewMode === "swipe" ? (
           deck.length > 0 ? (
             <div className="flex flex-col items-center pt-1 pb-4">
@@ -354,6 +452,7 @@ export default function LawyerCompatibleCasesContainer({
                           isFront={isFront}
                           onSwipe={handleSwipe}
                           onOpenAiBrief={() => handleOpenAiBrief(entry.caseItem)}
+                          loadingBrief={loadingBrief && selectedCaseForBrief?.id === entry.caseItem.id}
                           isRadarVip={entry.isRadarVip}
                         />
                       </div>
@@ -392,6 +491,7 @@ export default function LawyerCompatibleCasesContainer({
                 matchInfo={item.matchInfo}
                 isRadarVip={item.isRadarVip}
                 onMatched={(convId) => {
+                  setPostulatedIds((prev) => new Set(prev).add(item.caseItem.id));
                   setMatchedCase({
                     lawyerName: "Justiciable Interesado",
                     lawyerBar: "Identidad Desbloqueada con Éxito",

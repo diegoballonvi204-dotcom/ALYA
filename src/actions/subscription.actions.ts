@@ -125,6 +125,39 @@ export async function getMyLawyerSubscriptionAction(): Promise<{
  */
 export async function consumeMatchQuotaAction(lawyerProfileId: string): Promise<MatchQuotaResult> {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      allowed: false,
+      reason: "INACTIVE_SUBSCRIPTION",
+      current_usage: 0,
+      max_quota: 0,
+      plan_tier: "starter",
+      plan_name: "Plan Básico",
+    };
+  }
+
+  const { data: ownedLawyer } = await supabase
+    .from("lawyer_profiles")
+    .select("id")
+    .eq("id", lawyerProfileId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!ownedLawyer) {
+    return {
+      allowed: false,
+      reason: "INACTIVE_SUBSCRIPTION",
+      current_usage: 0,
+      max_quota: 0,
+      plan_tier: "starter",
+      plan_name: "Plan Básico",
+    };
+  }
+
   const { data, error } = await supabase.rpc("consume_lawyer_match_quota", {
     p_lawyer_id: lawyerProfileId,
   });

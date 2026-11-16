@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import {
   Calendar,
   Clock,
@@ -15,12 +15,14 @@ import {
   ShieldCheck,
   Copy,
   Sparkles,
+  Lock,
 } from "lucide-react";
 import {
   saveLawyerScheduleAction,
   updateConsultationStatusAction,
 } from "@/actions/schedule.actions";
 import { JitsiVideoModal } from "@/components/chat/JitsiVideoModal";
+import { formatLimaDate, formatLimaTime } from "@/lib/utils";
 
 const DAYS_OF_WEEK = [
   { day: 1, name: "Lunes" },
@@ -105,8 +107,28 @@ export function LawyerScheduleManager({
   }>({ isOpen: false, meetingLink: "", roomPasscode: null, title: "" });
 
   const [copiedPinId, setCopiedPinId] = useState<string | null>(null);
+  const [actionFeedback, setActionFeedback] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [rejectModal, setRejectModal] = useState<{
+    isOpen: boolean;
+    consultationId: string | null;
+    clientName: string;
+  }>({ isOpen: false, consultationId: null, clientName: "" });
 
   const [isActionPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (rejectModal.isOpen) {
+          setRejectModal({ isOpen: false, consultationId: null, clientName: "" });
+        } else if (confirmModal.isOpen) {
+          setConfirmModal({ isOpen: false, consultationId: null, meetingLink: "" });
+        }
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [rejectModal.isOpen, confirmModal.isOpen]);
 
   const handleToggleDay = (dayIndex: number) => {
     setSchedules((prev) =>
@@ -155,6 +177,7 @@ export function LawyerScheduleManager({
     status: "confirmed" | "completed" | "cancelled",
     meetingLink?: string
   ) => {
+    setActionFeedback(null);
     startTransition(async () => {
       const res = await updateConsultationStatusAction({
         consultationId,
@@ -179,8 +202,23 @@ export function LawyerScheduleManager({
           )
         );
         setConfirmModal({ isOpen: false, consultationId: null, meetingLink: "" });
+        setRejectModal({ isOpen: false, consultationId: null, clientName: "" });
+        setActionFeedback({
+          type: "success",
+          text:
+            status === "confirmed"
+              ? "Cita confirmada correctamente."
+              : status === "completed"
+              ? "Consulta marcada como concluida."
+              : "Solicitud de cita cancelada.",
+        });
       } else {
-        alert(res.error || "Error al actualizar cita");
+        setActionFeedback({
+          type: "error",
+          text: res.error || "No se pudo actualizar el estado de la cita.",
+        });
+        setConfirmModal({ isOpen: false, consultationId: null, meetingLink: "" });
+        setRejectModal({ isOpen: false, consultationId: null, clientName: "" });
       }
     });
   };
@@ -320,9 +358,26 @@ export function LawyerScheduleManager({
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             Revisa las solicitudes de cita recibidas a través de tus matches y
-            confirma los enlaces de videollamada.
+            confirma los enlaces de videollamada. Las citas requieren abono en custodia ALYA para confirmarse y concluirse.
           </p>
         </div>
+
+        {actionFeedback && (
+          <div
+            className={`mt-4 p-3 rounded-xl border text-xs flex items-center gap-2 ${
+              actionFeedback.type === "error"
+                ? "bg-rose-50 border-rose-200 text-rose-700"
+                : "bg-emerald-50 border-emerald-200 text-emerald-700"
+            }`}
+          >
+            {actionFeedback.type === "error" ? (
+              <AlertCircle className="w-4 h-4 shrink-0" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            )}
+            <span>{actionFeedback.text}</span>
+          </div>
+        )}
 
         {consultations.length === 0 ? (
           <div className="py-12 text-center text-slate-400">
@@ -338,17 +393,19 @@ export function LawyerScheduleManager({
         ) : (
           <div className="mt-6 divide-y divide-slate-100">
             {consultations.map((c) => {
-              const dt = new Date(c.scheduled_at);
-              const dateFormatted = dt.toLocaleDateString("es-PE", {
+              const dateFormatted = formatLimaDate(c.scheduled_at, {
                 weekday: "short",
                 day: "numeric",
                 month: "short",
                 year: "numeric",
               });
-              const timeFormatted = dt.toLocaleTimeString("es-PE", {
-                hour: "2-digit",
-                minute: "2-digit",
-              });
+              const timeFormatted = formatLimaTime(c.scheduled_at);
+
+              const isInactiveStatus = c.status === "cancelled" || c.status === "expired";
+              const isPaidInEscrowOrFree =
+                c.agreed_price === 0 ||
+                c.payment_status === "held_escrow" ||
+                c.payment_status === "released";
 
               return (
                 <div
@@ -383,6 +440,8 @@ export function LawyerScheduleManager({
                               ? "bg-blue-50 text-blue-700 border border-blue-200"
                               : c.status === "completed"
                               ? "bg-slate-100 text-slate-700 border border-slate-200"
+                              : c.status === "expired"
+                              ? "bg-slate-100 text-slate-500 border border-slate-200"
                               : "bg-rose-50 text-rose-700 border border-rose-200"
                           }`}
                         >
@@ -392,26 +451,34 @@ export function LawyerScheduleManager({
                             ? "Pendiente"
                             : c.status === "completed"
                             ? "Concluida"
+                            : c.status === "expired"
+                            ? "Vencida (48h)"
                             : "Cancelada"}
                         </span>
 
-                        {/* Custodia Escrow Badge */}
-                        <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 ${
-                            c.payment_status === "held_escrow"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                        {/* Custodia Escrow Badge (no mostrar Abono Pendiente en citas canceladas/vencidas) */}
+                        {isInactiveStatus ? (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 bg-slate-100 text-slate-500 border border-slate-200">
+                            Sin cobro
+                          </span>
+                        ) : (
+                          <span
+                            className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1 ${
+                              c.payment_status === "held_escrow"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : c.payment_status === "released"
+                                ? "bg-blue-50 text-[#2563EB] border border-blue-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            }`}
+                          >
+                            <ShieldCheck className="w-3 h-3" />
+                            {c.payment_status === "held_escrow"
+                              ? "Custodia ALYA Activa"
                               : c.payment_status === "released"
-                              ? "bg-blue-50 text-[#2563EB] border border-blue-200"
-                              : "bg-amber-50 text-amber-700 border border-amber-200"
-                          }`}
-                        >
-                          <ShieldCheck className="w-3 h-3" />
-                          {c.payment_status === "held_escrow"
-                            ? "Custodia ALYA Activa"
-                            : c.payment_status === "released"
-                            ? "Honorarios Liberados"
-                            : "Abono Pendiente"}
-                        </span>
+                              ? "Honorarios Liberados"
+                              : "Abono Pendiente"}
+                          </span>
+                        )}
                       </div>
 
                       <p className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-3">
@@ -432,51 +499,54 @@ export function LawyerScheduleManager({
                         </p>
                       )}
 
-                      {c.modality !== "presencial" && (
-                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setActiveVideoModal({
-                                isOpen: true,
-                                meetingLink:
-                                  c.meeting_link ||
-                                  `https://meet.jit.si/alya-legal-${c.id.replace(/-/g, "").slice(0, 16)}`,
-                                roomPasscode: c.room_passcode || null,
-                                title: `Consulta: ${c.case_title}`,
-                              })
-                            }
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200 text-xs font-bold transition-all shadow-2xs"
-                          >
-                            <Video className="w-3.5 h-3.5" />
-                            <span>Entrar a Videoconsulta</span>
-                          </button>
+                      {!isInactiveStatus &&
+                        c.modality !== "presencial" &&
+                        c.modality !== "in_person" &&
+                        isPaidInEscrowOrFree && (
+                          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setActiveVideoModal({
+                                  isOpen: true,
+                                  meetingLink:
+                                    c.meeting_link ||
+                                    `https://meet.jit.si/alya-legal-${c.id.replace(/-/g, "").slice(0, 16)}`,
+                                  roomPasscode: c.room_passcode || null,
+                                  title: `Consulta: ${c.case_title}`,
+                                })
+                              }
+                              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#2563EB] border border-blue-200 text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              <span>Entrar a Videoconsulta</span>
+                            </button>
 
-                          {c.room_passcode && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-mono border border-slate-200">
-                              <span>PIN:</span>
-                              <strong>{c.room_passcode}</strong>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(c.room_passcode!);
-                                  setCopiedPinId(c.id);
-                                  setTimeout(() => setCopiedPinId(null), 2000);
-                                }}
-                                className="text-slate-400 hover:text-slate-700 transition-colors"
-                                title="Copiar PIN"
-                              >
-                                <Copy className="w-3 h-3" />
-                              </button>
-                              {copiedPinId === c.id && (
-                                <span className="text-[10px] text-emerald-600 font-sans">
-                                  ¡Copiado!
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </div>
-                      )}
+                            {c.room_passcode && (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-mono border border-slate-200">
+                                <span>PIN:</span>
+                                <strong>{c.room_passcode}</strong>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(c.room_passcode!);
+                                    setCopiedPinId(c.id);
+                                    setTimeout(() => setCopiedPinId(null), 2000);
+                                  }}
+                                  className="text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                                  title="Copiar PIN"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                                {copiedPinId === c.id && (
+                                  <span className="text-[10px] text-emerald-600 font-sans">
+                                    ¡Copiado!
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -484,55 +554,81 @@ export function LawyerScheduleManager({
                   <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
                     {c.status === "requested" && (
                       <>
+                        {isPaidInEscrowOrFree ? (
+                          <button
+                            type="button"
+                            disabled={isActionPending}
+                            onClick={() => {
+                              const defaultLink =
+                                c.meeting_link ||
+                                (c.modality === "virtual"
+                                  ? `https://meet.jit.si/alya-legal-${c.case_id.slice(0, 8)}-${Math.random().toString(36).substring(2, 7)}`
+                                  : "");
+                              setConfirmModal({
+                                isOpen: true,
+                                consultationId: c.id,
+                                meetingLink: defaultLink,
+                                caseId: c.case_id,
+                              });
+                            }}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer"
+                          >
+                            Confirmar Cita
+                          </button>
+                        ) : (
+                          <span
+                            title="El cliente debe completar el abono en custodia ALYA antes de confirmar la cita"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-semibold"
+                          >
+                            <Lock className="w-3 h-3 text-amber-600" />
+                            <span>Esperando abono en custodia</span>
+                          </span>
+                        )}
+
                         <button
+                          type="button"
                           disabled={isActionPending}
-                          onClick={() => {
-                            const defaultLink =
-                              c.meeting_link ||
-                              (c.modality === "virtual"
-                                ? `https://meet.jit.si/alya-legal-${c.case_id.slice(0, 8)}-${Math.random().toString(36).substring(2, 7)}`
-                                : "");
-                            setConfirmModal({
+                          onClick={() =>
+                            setRejectModal({
                               isOpen: true,
                               consultationId: c.id,
-                              meetingLink: defaultLink,
-                              caseId: c.case_id,
-                            });
-                          }}
-                          className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold transition-colors"
-                        >
-                          Confirmar Cita
-                        </button>
-                        <button
-                          disabled={isActionPending}
-                          onClick={() => handleStatusUpdate(c.id, "cancelled")}
-                          className="px-3 py-1.5 rounded-xl text-slate-500 hover:text-rose-700 hover:bg-rose-50 text-xs transition-colors font-medium"
+                              clientName: c.client_name,
+                            })
+                          }
+                          className="px-3 py-1.5 rounded-xl text-slate-500 hover:text-rose-700 hover:bg-rose-50 text-xs transition-colors font-medium cursor-pointer"
                         >
                           Rechazar
                         </button>
                       </>
                     )}
 
-                    {c.status === "confirmed" && (
-                      <button
-                        disabled={isActionPending}
-                        onClick={() => {
-                          const confirmMsg =
-                            c.payment_status === "held_escrow"
-                              ? "¿Deseas marcar la consulta como concluida? Los honorarios en custodia (S/ " +
-                                c.agreed_price.toFixed(2) +
-                                ") serán liberados a tu favor."
-                              : "¿Deseas marcar la consulta como concluida?";
-                          if (window.confirm(confirmMsg)) {
-                            handleStatusUpdate(c.id, "completed");
-                          }
-                        }}
-                        className="px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-colors flex items-center gap-1.5"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Marcar Concluida</span>
-                      </button>
-                    )}
+                    {c.status === "confirmed" &&
+                      (isPaidInEscrowOrFree ? (
+                        <button
+                          type="button"
+                          disabled={isActionPending}
+                          onClick={() => {
+                            const confirmMsg =
+                              c.payment_status === "held_escrow"
+                                ? "¿Deseas marcar la consulta como concluida? Los honorarios en custodia (S/ " +
+                                  c.agreed_price.toFixed(2) +
+                                  ") serán liberados a tu favor."
+                                : "¿Deseas marcar la consulta como concluida?";
+                            if (window.confirm(confirmMsg)) {
+                              handleStatusUpdate(c.id, "completed");
+                            }
+                          }}
+                          className="px-3.5 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Marcar Concluida</span>
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-semibold">
+                          <Lock className="w-3 h-3 text-amber-600" />
+                          <span>Requiere abono en custodia para concluir</span>
+                        </span>
+                      ))}
                   </div>
                 </div>
               );
@@ -540,6 +636,57 @@ export function LawyerScheduleManager({
           </div>
         )}
       </section>
+
+      {/* Modal de Confirmación de Rechazo (H19) */}
+      {rejectModal.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 p-6 text-[#0F172A] shadow-2xl space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-50 text-rose-600 border border-rose-200 shrink-0">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#0F172A] font-serif">
+                  ¿Rechazar esta solicitud de cita?
+                </h3>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Estás por cancelar la solicitud de consulta con{" "}
+                  <strong>{rejectModal.clientName}</strong>. Esta acción notificará al cliente y no se puede deshacer.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isActionPending}
+                onClick={() =>
+                  setRejectModal({ isOpen: false, consultationId: null, clientName: "" })
+                }
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                disabled={isActionPending}
+                onClick={() => {
+                  if (rejectModal.consultationId) {
+                    handleStatusUpdate(rejectModal.consultationId, "cancelled");
+                  }
+                }}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-xs font-bold text-white shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                {isActionPending ? "Cancelando..." : "Sí, Rechazar Cita"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Confirmación con Enlace */}
       {confirmModal.isOpen && (

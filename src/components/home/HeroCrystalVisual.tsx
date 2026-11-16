@@ -343,10 +343,10 @@ export function HeroCrystalVisual() {
             </div>
             <div>
               <p className="text-xs font-bold text-white font-serif">
-                Dra. Elena Ramos Morales
+                Colegiatura Oficial Verificada
               </p>
               <p className="text-[10px] text-blue-400 font-mono font-medium">
-                Reg. CAL N.° 48921 • Tutela Laboral • PUCP
+                Auditoría de Habilitación CAL / CAA • Perú
               </p>
             </div>
           </div>

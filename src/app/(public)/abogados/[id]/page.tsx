@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPublicLawyerDetailAction } from "@/actions/directory.actions";
+import { cleanLawyerName, formatBarLabel, pluralize } from "@/lib/utils";
 import {
   ShieldCheck,
   Star,
@@ -36,12 +37,12 @@ export async function generateMetadata({
     };
   }
 
-  const fullName = `${lawyer.firstName} ${lawyer.lastName}`.trim();
+  const fullName = cleanLawyerName(`${lawyer.firstName} ${lawyer.lastName}`.trim());
   const primarySpec = lawyer.specialties[0]?.name || "Derecho";
-  const title = `Dr. ${fullName} — Abogado ${primarySpec} en ${lawyer.city} | ALYA`;
+  const title = `${fullName} — Abogado ${primarySpec} en ${lawyer.city} | ALYA`;
   const description =
     lawyer.bio?.slice(0, 160) ||
-    `Perfil profesional del Dr. ${fullName}, colegiado ${lawyer.barAssociation || "CAL"} ${lawyer.barNumber}. ${lawyer.yearsExperience} años de experiencia en ${primarySpec}.`;
+    `Perfil profesional de ${fullName}, colegiado ${formatBarLabel(lawyer.barAssociation || "CAL", lawyer.barNumber)}. ${lawyer.yearsExperience} años de experiencia en ${primarySpec}.`;
 
   return {
     title,
@@ -66,15 +67,16 @@ export default async function PublicLawyerProfilePage({
     notFound();
   }
 
-  const fullName = `${lawyer.firstName} ${lawyer.lastName}`.trim();
+  const fullName = cleanLawyerName(`${lawyer.firstName} ${lawyer.lastName}`.trim());
   const initials = `${lawyer.firstName?.[0] || "A"}${lawyer.lastName?.[0] || "L"}`;
   const primarySpec = lawyer.specialties.find((s) => s.isPrimary)?.name || lawyer.specialties[0]?.name || "Especialista Jurídico";
+  const barLabel = formatBarLabel(lawyer.barAssociation || "CAL", lawyer.barNumber);
 
   // Structured Data (JSON-LD) para Google
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Attorney",
-    name: `Dr. ${fullName}`,
+    name: fullName,
     description: lawyer.bio || `Abogado especialista en ${primarySpec} en ${lawyer.city}, Perú.`,
     image: lawyer.avatarUrl || undefined,
     address: {
@@ -110,7 +112,7 @@ export default async function PublicLawyerProfilePage({
           </Link>
 
           <span className="text-xs text-slate-400 font-mono">
-            {lawyer.barAssociation || "CAL"} Matrícula {lawyer.barNumber}
+            {barLabel}
           </span>
         </div>
       </div>
@@ -164,7 +166,7 @@ export default async function PublicLawyerProfilePage({
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-2 font-mono">
                     <span className="inline-flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-lg text-slate-800 font-semibold">
                       <Award className="w-3.5 h-3.5 text-[#2563EB]" />
-                      {lawyer.barAssociation || "CAL"} {lawyer.barNumber}
+                      {barLabel}
                     </span>
                     <span className="flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
@@ -172,7 +174,8 @@ export default async function PublicLawyerProfilePage({
                     </span>
                     <span className="flex items-center gap-1.5 text-amber-500 font-sans font-bold">
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      {lawyer.ratingAverage.toFixed(1)} ({lawyer.totalReviews} opiniones)
+                      {lawyer.ratingAverage.toFixed(1)} ({lawyer.totalReviews}{" "}
+                      {pluralize(lawyer.totalReviews, "opinión", "opiniones")})
                     </span>
                   </div>
                 </div>
@@ -188,7 +191,7 @@ export default async function PublicLawyerProfilePage({
 
               <p className="text-sm text-slate-700 leading-relaxed font-sans whitespace-pre-line">
                 {lawyer.bio ||
-                  `El Dr. ${fullName} es abogado colegiado en el ${lawyer.barAssociation || "Colegio de Abogados de Lima (CAL)"} con amplia trayectoria en la defensa y patrocinio de causas legales en ${lawyer.city} y a nivel nacional.`}
+                  `${fullName} es abogado colegiado en el ${lawyer.barAssociation || "Colegio de Abogados de Lima (CAL)"} con amplia trayectoria en la defensa y patrocinio de causas legales en ${lawyer.city} y a nivel nacional.`}
               </p>
 
               {lawyer.addressOffice && lawyer.physicalAttention && (
@@ -281,6 +284,15 @@ export default async function PublicLawyerProfilePage({
                     </div>
                   ))}
                 </div>
+              ) : lawyer.totalReviews > 0 ? (
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4 text-xs text-slate-600 leading-relaxed">
+                  Este letrado cuenta con{" "}
+                  <strong>
+                    {lawyer.totalReviews} {pluralize(lawyer.totalReviews, "evaluación auditada", "evaluaciones auditadas")}
+                  </strong>{" "}
+                  con una calificación promedio de{" "}
+                  <strong>{lawyer.ratingAverage.toFixed(1)} / 5.0</strong>. Los comentarios detallados de cada justiciable se resguardan por confidencialidad profesional.
+                </div>
               ) : (
                 <div className="text-center py-6 text-xs text-slate-500">
                   Este letrado aún no registra reseñas públicas. Sé el primero en consultar su servicio profesional.
@@ -315,7 +327,7 @@ export default async function PublicLawyerProfilePage({
                 {lawyer.virtualAttention && (
                   <div className="flex items-center gap-2 text-slate-700">
                     <Video className="w-4 h-4 text-blue-600 shrink-0" />
-                    <span>Videoconsulta de 1 Clic (Jitsi Meet Cifrado)</span>
+                    <span>Videoconsulta Protegida TLS (Sala con PIN y Antesala)</span>
                   </div>
                 )}
                 {lawyer.physicalAttention && (

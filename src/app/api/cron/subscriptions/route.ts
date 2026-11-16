@@ -1,13 +1,21 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import crypto from "crypto";
 
 export async function GET(request: Request) {
   try {
-    const authHeader = request.headers.get("authorization");
+    const authHeader = request.headers.get("authorization") || "";
     const cronSecret = process.env.CRON_SECRET;
 
-    // Validación de seguridad si el secreto de cron está configurado
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      return NextResponse.json({ error: "CRON_SECRET no configurado" }, { status: 503 });
+    }
+
+    const expectedHeader = `Bearer ${cronSecret}`;
+    const authBuf = Buffer.from(authHeader, "utf8");
+    const expectedBuf = Buffer.from(expectedHeader, "utf8");
+
+    if (authBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(authBuf, expectedBuf)) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
@@ -20,7 +28,7 @@ export async function GET(request: Request) {
 
     if (error) {
       console.error("Error en cron_subscription_dunning_sweep:", error);
-      return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "Error ejecutando cron" }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -31,7 +39,7 @@ export async function GET(request: Request) {
   } catch (err: any) {
     console.error("Error inesperado en /api/cron/subscriptions:", err);
     return NextResponse.json(
-      { success: false, error: err.message || "Error interno de cron" },
+      { success: false, error: "Error interno de cron" },
       { status: 500 }
     );
   }

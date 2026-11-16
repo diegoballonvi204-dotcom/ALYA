@@ -53,6 +53,13 @@ export function ConsultationPaymentModal({
   const [cvv, setCvv] = useState("");
   const [docNumber, setDocNumber] = useState("");
 
+  const yapePhone = process.env.NEXT_PUBLIC_ALYA_YAPE_PHONE || "";
+  const bcpAccount = process.env.NEXT_PUBLIC_ALYA_BCP_ACCOUNT || "";
+  const bcpCci = process.env.NEXT_PUBLIC_ALYA_BCP_CCI || "";
+  const legalEntity = process.env.NEXT_PUBLIC_ALYA_LEGAL_NAME || "ALYA LegalTech Perú";
+  const legalRuc = process.env.NEXT_PUBLIC_ALYA_LEGAL_RUC || "";
+  const hasConfiguredBankAccounts = Boolean(yapePhone || bcpAccount);
+
   // Estados de Transferencia / Voucher (Yape / Plin / BCP)
   const [paymentMethod, setPaymentMethod] = useState<"yape" | "plin" | "bank_transfer">("yape");
   const [operationNumber, setOperationNumber] = useState("");
@@ -531,28 +538,40 @@ export function ConsultationPaymentModal({
                   </div>
 
                   {/* QR Box & Coordenadas de Pago */}
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 flex items-center gap-3">
-                    <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0">
-                      <QrCode className="w-12 h-12 text-slate-800" />
+                  {hasConfiguredBankAccounts ? (
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5 flex items-center gap-3">
+                      <div className="w-16 h-16 rounded-lg bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0">
+                        <QrCode className="w-12 h-12 text-slate-800" />
+                      </div>
+                      <div className="text-xs space-y-0.5">
+                        <p className="font-bold text-slate-900">
+                          {paymentMethod === "yape"
+                            ? `Yape Oficial ${legalEntity}`
+                            : paymentMethod === "plin"
+                            ? `Plin Oficial ${legalEntity}`
+                            : "Cuenta Corriente BCP"}
+                        </p>
+                        <p className="font-mono text-purple-700 font-bold text-sm">
+                          {paymentMethod === "bank_transfer"
+                            ? bcpAccount || "No configurada"
+                            : yapePhone || "No configurado"}
+                        </p>
+                        {paymentMethod === "bank_transfer" && bcpCci && (
+                          <p className="text-[11px] text-slate-500 font-mono">
+                            CCI: {bcpCci}
+                          </p>
+                        )}
+                        <p className="text-[11px] text-slate-500">
+                          Titular: {legalEntity}
+                          {legalRuc ? ` (RUC ${legalRuc})` : ""}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-xs space-y-0.5">
-                      <p className="font-bold text-slate-900">
-                        {paymentMethod === "yape"
-                          ? "Yape Oficial ALYA Perú"
-                          : paymentMethod === "plin"
-                          ? "Plin Oficial ALYA Perú"
-                          : "Cuenta Corriente BCP"}
-                      </p>
-                      <p className="font-mono text-purple-700 font-bold text-sm">
-                        {paymentMethod === "bank_transfer"
-                          ? "193-98214587-0-12"
-                          : "987 654 321"}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        Titular: ALYA LegalTech SAC (RUC 20608974512)
-                      </p>
+                  ) : (
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-[11px] text-amber-800 leading-relaxed">
+                      <strong>Cuentas de recaudación directa no configuradas:</strong> Utiliza la pestaña <strong>Tarjeta</strong> o solicita las cuentas bancarias vigentes a soporte@alya.pe antes de realizar una transferencia manual.
                     </div>
-                  </div>
+                  )}
 
                   {/* Número de Operación */}
                   <div>

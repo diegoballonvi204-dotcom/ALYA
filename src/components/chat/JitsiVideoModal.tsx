@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -41,15 +41,24 @@ export function JitsiVideoModal({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copiedPasscode, setCopiedPasscode] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const effectiveDisplayName = participantName || userName || "Participante ALYA";
   const effectiveTitle = consultationTitle || caseTitle || "Consulta Legal ALYA";
 
-  // Parámetros seguros para la URL de Jitsi Meet
+  // Parámetros de seguridad y sala de espera previa (antesala) para la videoconsulta
   const cleanLink = meetingLink.split("#")[0];
   const encodedName = encodeURIComponent(effectiveDisplayName);
-  const iframeSrc = `${cleanLink}#userInfo.displayName="${encodedName}"&config.prejoinPageEnabled=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.SHOW_JITSI_WATERMARK=false`;
+  const iframeSrc = `${cleanLink}#userInfo.displayName="${encodedName}"&config.prejoinPageEnabled=true&config.enableLobbyChat=false&config.startWithAudioMuted=false&config.startWithVideoMuted=false&interfaceConfig.SHOW_JITSI_WATERMARK=false`;
 
   const copyPasscode = () => {
     if (!roomPasscode) return;
@@ -89,11 +98,11 @@ export function JitsiVideoModal({
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-bold text-white truncate font-serif">
-                    Teleasistencia Legal Protegida
+                    Sala de Teleasistencia Legal
                   </h3>
                   <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 text-[10px] font-bold">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    Cifrado Extremo a Extremo
+                    Canal Protegido TLS {roomPasscode ? "• Sala con PIN" : "• Antesala Activa"}
                   </span>
                 </div>
                 <p className="text-[11px] text-slate-400 truncate">

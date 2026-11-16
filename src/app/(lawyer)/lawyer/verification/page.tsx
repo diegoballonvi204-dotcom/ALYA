@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import VerificationForm from "@/components/lawyer/VerificationForm";
 import { ShieldCheck, FileCheck, Clock, AlertCircle, ArrowLeft, Lock } from "lucide-react";
 import Link from "next/link";
 import LawyerActivationCodeForm from "@/components/lawyer/LawyerActivationCodeForm";
+
+export const metadata: Metadata = {
+  title: "Verificación Colegiada | ALYA Perú",
+  description:
+    "Valida tu carné del Colegio de Abogados y documento de identidad para habilitar tu despacho en ALYA Perú.",
+};
 
 export default async function LawyerVerificationPage() {
   const supabase = await createClient();

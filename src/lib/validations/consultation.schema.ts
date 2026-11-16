@@ -25,6 +25,10 @@ export const UpdateConsultationStatusSchema = z.object({
   meetingLink: z
     .string()
     .url("El enlace debe ser una URL válida (ej. Google Meet o Zoom)")
+    .refine(
+      (val) => !val || /^https:\/\//i.test(val),
+      "El enlace de videollamada debe usar protocolo seguro HTTPS"
+    )
     .optional()
     .nullable()
     .or(z.literal("")),

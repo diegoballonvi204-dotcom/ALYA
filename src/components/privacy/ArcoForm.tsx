@@ -15,6 +15,14 @@ import {
   Lock,
 } from "lucide-react";
 import { submitArcoRequestAction } from "@/actions/arco.actions";
+import { formatLimaDate } from "@/lib/utils";
+
+const ARCO_TYPE_LABELS: Record<string, string> = {
+  access: "Acceso",
+  rectification: "Rectificación",
+  cancellation: "Cancelación",
+  opposition: "Oposición",
+};
 
 interface ArcoFormProps {
   initialRequests?: any[];
@@ -68,7 +76,9 @@ export function ArcoForm({
   >("access");
   const [requesterName, setRequesterName] = useState(userName);
   const [requesterDni, setRequesterDni] = useState("");
-  const [requesterEmail, setRequesterEmail] = useState(userEmail);
+  const [requesterEmail, setRequesterEmail] = useState(
+    userEmail.replace(/@legalmatch\.pe$/i, "@alya.pe")
+  );
   const [justification, setJustification] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -128,10 +138,12 @@ export function ArcoForm({
             const Icon = t.icon;
 
             return (
-              <div
+              <button
                 key={t.type}
+                type="button"
+                aria-pressed={isSelected}
                 onClick={() => setSelectedType(t.type)}
-                className={`p-5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
+                className={`p-5 rounded-2xl border text-left cursor-pointer transition-all flex flex-col justify-between ${
                   isSelected
                     ? "bg-blue-50/60 border-[#2563EB] ring-2 ring-blue-500/20 shadow-md"
                     : "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
@@ -157,7 +169,7 @@ export function ArcoForm({
                   </p>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] w-full">
                   <span
                     className={`font-semibold ${
                       isSelected ? "text-[#2563EB]" : "text-slate-400"
@@ -166,7 +178,7 @@ export function ArcoForm({
                     {isSelected ? "Seleccionado ✓" : "Seleccionar"}
                   </span>
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -207,12 +219,14 @@ export function ArcoForm({
           <form onSubmit={handleSubmit} className="mt-6 space-y-5">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label htmlFor="arco-requester-name" className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Nombre Completo del Titular *
                 </label>
                 <input
+                  id="arco-requester-name"
                   type="text"
                   required
+                  autoComplete="name"
                   value={requesterName}
                   onChange={(e) => setRequesterName(e.target.value)}
                   placeholder="Nombres y Apellidos"
@@ -221,44 +235,50 @@ export function ArcoForm({
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  DNI (8 dígitos) *
+                <label htmlFor="arco-requester-dni" className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  DNI (8 dígitos numéricos) *
                 </label>
                 <input
+                  id="arco-requester-dni"
                   type="text"
+                  inputMode="numeric"
+                  pattern="\d{8}"
                   required
                   maxLength={8}
                   value={requesterDni}
-                  onChange={(e) => setRequesterDni(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => setRequesterDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
                   placeholder="12345678"
                   className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-[#0F172A] placeholder-slate-400 font-mono focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                <label htmlFor="arco-requester-email" className="block text-xs font-semibold text-slate-700 mb-1.5">
                   Correo Electrónico de Notificación *
                 </label>
                 <input
+                  id="arco-requester-email"
                   type="email"
                   required
+                  autoComplete="email"
                   value={requesterEmail}
                   onChange={(e) => setRequesterEmail(e.target.value)}
-                  placeholder="ejemplo@correo.pe"
+                  placeholder="usuario@alya.pe"
                   className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-xs text-[#0F172A] placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              <label htmlFor="arco-justification" className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Fundamentación de la Solicitud de{" "}
-                <span className="text-[#2563EB] capitalize">
-                  {selectedType}
+                <span className="text-[#2563EB]">
+                  {ARCO_TYPE_LABELS[selectedType] || selectedType}
                 </span>{" "}
                 *
               </label>
               <textarea
+                id="arco-justification"
                 required
                 rows={4}
                 value={justification}
@@ -313,15 +333,8 @@ export function ArcoForm({
 
           <div className="divide-y divide-slate-100">
             {requests.map((r) => {
-              const dt = new Date(r.created_at).toLocaleDateString("es-PE", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              });
-              const deadline = new Date(r.deadline_at).toLocaleDateString(
-                "es-PE",
-                { day: "numeric", month: "short", year: "numeric" }
-              );
+              const dt = formatLimaDate(r.created_at);
+              const deadline = formatLimaDate(r.deadline_at);
 
               return (
                 <div
@@ -331,7 +344,7 @@ export function ArcoForm({
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold uppercase text-[#2563EB]">
-                        Derecho de {r.request_type}
+                        Derecho de {ARCO_TYPE_LABELS[r.request_type] || r.request_type}
                       </span>
                       <span className="text-slate-300">•</span>
                       <span className="text-xs text-slate-500 font-mono">

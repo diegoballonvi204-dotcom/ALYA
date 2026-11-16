@@ -44,6 +44,20 @@ export async function createFeeAgreementAction(input: CreateFeeAgreementInput) {
     return { error: "Solo los abogados habilitados pueden emitir convenios de patrocinio." };
   }
 
+  if (input.fixedFee !== undefined && input.fixedFee !== null) {
+    const parsedFixedFee = Number(input.fixedFee);
+    if (!Number.isFinite(parsedFixedFee) || parsedFixedFee < 0) {
+      return { error: "El honorario fijo debe ser un monto válido mayor o igual a cero." };
+    }
+  }
+
+  if (input.successFeePercentage !== undefined && input.successFeePercentage !== null) {
+    const parsedPct = Number(input.successFeePercentage);
+    if (!Number.isFinite(parsedPct) || parsedPct < 0 || parsedPct > 100) {
+      return { error: "La cuota litis (%) debe estar entre 0 y 100." };
+    }
+  }
+
   // 2. Obtener caso para identificar al cliente
   const { data: caseItem, error: caseErr } = await supabase
     .from("cases")
@@ -53,6 +67,22 @@ export async function createFeeAgreementAction(input: CreateFeeAgreementInput) {
 
   if (caseErr || !caseItem) {
     return { error: "Caso legal no encontrado." };
+  }
+
+  // 2b. Verificar que exista un match activo entre el abogado y el caso
+  const { data: activeMatch, error: matchErr } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("case_id", input.caseId)
+    .eq("lawyer_id", lp.id)
+    .eq("status", "matched")
+    .limit(1)
+    .maybeSingle();
+
+  if (matchErr || !activeMatch) {
+    return {
+      error: "Solo puedes proponer un convenio de honorarios en casos con match activo.",
+    };
   }
 
   const stagesJson = input.stages && input.stages.length > 0 ? input.stages : [];
@@ -100,9 +130,8 @@ export async function createFeeAgreementAction(input: CreateFeeAgreementInput) {
   // 5. Notificar en el chat si existe conversación
   if (input.conversationId) {
     const lawyerName = `${(lp.profiles as any)?.first_name || "Abogado"} ${(lp.profiles as any)?.last_name || ""}`.trim();
-    const feeText = `S/ ${Number(input.fixedFee).toFixed(2)}${
-      input.successFeePercentage ? ` + ${input.successFeePercentage}% de cuota litis / éxito` : ""
-    }`;
+    const feeText = `S/ ${Number(input.fixedFee).toFixed(2)}${input.successFeePercentage ? ` + ${input.successFeePercentage}% de cuota litis / éxito` : ""
+      }`;
 
     await supabase.from("messages").insert({
       conversation_id: input.conversationId,
@@ -214,7 +243,7 @@ export async function signFeeAgreementAction(input: SignFeeAgreementInput) {
     await supabase.from("messages").insert({
       conversation_id: agreement.conversation_id,
       sender_id: user.id,
-      message: `✅ **Convenio de Honorarios Firmado Bilateralmente**\n**Firmante:** ${input.clientFullName.trim()} (DNI: ${input.clientDni.trim()})\n**Fecha de firma:** ${new Date(signedAt).toLocaleString("es-PE", { dateStyle: "full", timeStyle: "medium" })}\n**Hash Criptográfico:** \`${finalHash.substring(0, 16)}...\`\n*Copia legal archivada automáticamente en la Bóveda Documental del caso.*`,
+      message: `✅ **Convenio de Honorarios Firmado Bilateralmente**\n**Firmante:** ${input.clientFullName.trim()} (DNI: ${input.clientDni.trim()})\n**Fecha de firma:** ${new Date(signedAt).toLocaleString("es-PE", { dateStyle: "full", timeStyle: "medium", timeZone: "America/Lima" })}\n**Hash Criptográfico:** \`${finalHash.substring(0, 16)}...\`\n*Copia legal archivada automáticamente en la Bóveda Documental del caso.*`,
     });
     revalidatePath(`/chat/${agreement.conversation_id}`);
   }
@@ -231,6 +260,48 @@ export async function getCaseFeeAgreementsAction(caseId: string) {
 
   if (!user) {
     return { error: "No autenticado", agreements: [] };
+  }
+
+  // Verificar que el usuario sea propietario del caso o abogado vinculado/emparejado
+  const { data: caseOwner } = await supabase
+    .from("cases")
+    .select("user_id")
+    .eq("id", caseId)
+    .maybeSingle();
+
+  let hasAccess = caseOwner?.user_id === user.id;
+
+  if (!hasAccess) {
+    const { data: lp } = await supabase
+      .from("lawyer_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (lp) {
+      const [{ data: matchRow }, { data: agreedRow }] = await Promise.all([
+        supabase
+          .from("matches")
+          .select("id")
+          .eq("case_id", caseId)
+          .eq("lawyer_id", lp.id)
+          .eq("status", "matched")
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("fee_agreements")
+          .select("id")
+          .eq("case_id", caseId)
+          .eq("lawyer_id", lp.id)
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      hasAccess = Boolean(matchRow || agreedRow);
+    }
+  }
+
+  if (!hasAccess) {
+    return { error: "No autorizado para ver los convenios de este caso.", agreements: [] };
   }
 
   const { data: agreements, error } = await supabase

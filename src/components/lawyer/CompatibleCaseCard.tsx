@@ -104,7 +104,15 @@ export default function CompatibleCaseCard({
   const handleOpenAiBrief = async () => {
     setLoadingBrief(true);
     try {
-      const res = await getLawyerCaseAIBriefAction(caseItem.id);
+      const res = await getLawyerCaseAIBriefAction(caseItem.id, {
+        id: caseItem.id,
+        title: caseItem.title,
+        description: caseItem.description,
+        city: caseItem.city,
+        modality: caseItem.modality,
+        urgency: caseItem.urgency,
+        specialtyName: caseItem.specialties?.name,
+      });
       if (!res.success && res.isLocked) {
         setIsBriefLocked(true);
         setAiBrief(null);
@@ -114,7 +122,6 @@ export default function CompatibleCaseCard({
         setAiBrief(res.brief);
         setShowBriefModal(true);
       } else {
-        // Fallback bloqueado o error
         setIsBriefLocked(true);
         setAiBrief(null);
         setShowBriefModal(true);
@@ -122,6 +129,7 @@ export default function CompatibleCaseCard({
     } catch (err) {
       console.error("Error al obtener briefing IA:", err);
       setIsBriefLocked(true);
+      setAiBrief(null);
       setShowBriefModal(true);
     } finally {
       setLoadingBrief(false);

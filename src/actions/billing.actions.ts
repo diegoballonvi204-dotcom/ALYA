@@ -15,6 +15,28 @@ interface SubmitVoucherParams {
   operationNumber?: string;
 }
 
+async function verifyAdminAccess(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<{ authorized: boolean; userId?: string }> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { authorized: false };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role !== "admin" && profile?.role !== "verifier") {
+    return { authorized: false };
+  }
+
+  return { authorized: true, userId: user.id };
+}
+
 /**
  * Registra un comprobante de pago manual (Yape, Plin o Transferencia BCP)
  * enviado por el abogado para revisión administrativa.
@@ -28,6 +50,14 @@ export async function submitManualPaymentVoucherAction(params: SubmitVoucherPara
 
     if (!user) {
       return { success: false, error: "Debes iniciar sesión para registrar tu comprobante." };
+    }
+
+    if (
+      !params.voucherUrl ||
+      params.voucherUrl.includes("..") ||
+      !params.voucherUrl.startsWith(`${user.id}/`)
+    ) {
+      return { success: false, error: "Ruta de comprobante no válida o no autorizada." };
     }
 
     // 1. Obtener perfil del abogado
@@ -63,14 +93,14 @@ export async function submitManualPaymentVoucherAction(params: SubmitVoucherPara
       return { success: false, error: "El plan seleccionado no es válido." };
     }
 
-    // 4. Insertar comprobante en public.subscription_invoices
+    // 4. Insertar comprobante en public.subscription_invoices (monto autoritativo desde DB)
     const { data: invoice, error: invErr } = await supabase
       .from("subscription_invoices")
       .insert({
         subscription_id: sub.id,
         lawyer_id: lawyer.id,
         target_plan_id: params.targetPlanId,
-        amount_pen: params.amountPen,
+        amount_pen: Number(plan.price_pen),
         status: "review_pending",
         payment_method: params.paymentMethod,
         voucher_url: params.voucherUrl,
@@ -107,6 +137,10 @@ export async function submitManualPaymentVoucherAction(params: SubmitVoucherPara
 export async function getAdminInvoicesAction(statusFilter?: string) {
   try {
     const supabase = await createClient();
+    const adminCheck = await verifyAdminAccess(supabase);
+    if (!adminCheck.authorized) {
+      return { success: false, error: "Acceso denegado: se requieren privilegios de administrador." };
+    }
 
     let query = supabase
       .from("subscription_invoices")
@@ -149,6 +183,10 @@ export async function getAdminInvoicesAction(statusFilter?: string) {
 export async function approveManualPaymentInvoiceAction(invoiceId: string) {
   try {
     const supabase = await createClient();
+    const adminCheck = await verifyAdminAccess(supabase);
+    if (!adminCheck.authorized) {
+      return { success: false, error: "Acceso denegado: se requieren privilegios de administrador." };
+    }
 
     // 1. Obtener la factura
     const { data: invoice, error: invErr } = await supabase
@@ -247,6 +285,10 @@ export async function approveManualPaymentInvoiceAction(invoiceId: string) {
 export async function rejectManualPaymentInvoiceAction(invoiceId: string, reason: string) {
   try {
     const supabase = await createClient();
+    const adminCheck = await verifyAdminAccess(supabase);
+    if (!adminCheck.authorized) {
+      return { success: false, error: "Acceso denegado: se requieren privilegios de administrador." };
+    }
 
     // 1. Obtener la factura
     const { data: invoice, error: invErr } = await supabase
@@ -346,6 +388,10 @@ export async function getMyInvoicesAction(): Promise<{
 export async function getAdminSubscriptionStatsAction() {
   try {
     const supabase = await createClient();
+    const adminCheck = await verifyAdminAccess(supabase);
+    if (!adminCheck.authorized) {
+      return { success: false, error: "Acceso denegado: se requieren privilegios de administrador." };
+    }
 
     const [subsRes, invoicesRes] = await Promise.all([
       supabase.from("lawyer_subscriptions").select(`
@@ -443,6 +489,11 @@ export async function getAdminSubscriptionStatsAction() {
 export async function runDunningSweepAction() {
   try {
     const supabase = await createClient();
+    const adminCheck = await verifyAdminAccess(supabase);
+    if (!adminCheck.authorized) {
+      return { success: false, error: "Acceso denegado: se requieren privilegios de administrador." };
+    }
+
     const { data, error } = await supabase.rpc("cron_subscription_dunning_sweep");
 
     if (error) {
@@ -457,5 +508,183 @@ export async function runDunningSweepAction() {
     return { success: true, result: data };
   } catch (err: any) {
     return { success: false, error: err.message || "Error al ejecutar dunning" };
+  }
+}
+
+interface CardPaymentParams {
+  targetPlanId: string;
+  cardNumber: string;
+  cardHolder: string;
+  expiry: string;
+  cvv: string;
+  invoiceType: "boleta" | "factura";
+  taxIdNumber: string;
+  taxLegalName: string;
+}
+
+/**
+ * Procesa el pago con tarjeta de crédito/débito para activar el plan Pro o Élite.
+ */
+export async function processCardSubscriptionPaymentAction(params: CardPaymentParams) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return { success: false, error: "Debes iniciar sesión para activar tu plan." };
+    }
+
+    const digits = params.cardNumber.replace(/\D/g, "");
+    if (digits.length < 15 || digits.length > 16) {
+      return { success: false, error: "Número de tarjeta inválido (debe tener 15 o 16 dígitos)." };
+    }
+
+    const expiryMatch = params.expiry.trim().match(/^(\d{2})\/(\d{2})$/);
+    if (!expiryMatch) {
+      return { success: false, error: "Fecha de vencimiento inválida (formato MM/AA)." };
+    }
+    const expMonth = Number(expiryMatch[1]);
+    const expYear = 2000 + Number(expiryMatch[2]);
+    const now = new Date();
+    if (
+      expMonth < 1 ||
+      expMonth > 12 ||
+      expYear < now.getFullYear() ||
+      (expYear === now.getFullYear() && expMonth < now.getMonth() + 1)
+    ) {
+      return { success: false, error: "La tarjeta ingresada se encuentra vencida o tiene mes inválido." };
+    }
+
+    const cvvDigits = params.cvv.replace(/\D/g, "");
+    if (cvvDigits.length < 3 || cvvDigits.length > 4) {
+      return { success: false, error: "El código CVV debe tener 3 o 4 dígitos." };
+    }
+
+    const taxDigits = params.taxIdNumber.replace(/\D/g, "");
+    if (params.invoiceType === "factura" && taxDigits.length !== 11) {
+      return { success: false, error: "Para Factura, el RUC debe tener exactamente 11 dígitos numéricos." };
+    }
+    if (params.invoiceType === "boleta" && taxDigits.length !== 8) {
+      return { success: false, error: "Para Boleta, el DNI debe tener exactamente 8 dígitos numéricos." };
+    }
+
+    const { data: lawyer, error: lpErr } = await supabase
+      .from("lawyer_profiles")
+      .select("id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (lpErr || !lawyer) {
+      return { success: false, error: "Perfil de abogado no encontrado." };
+    }
+
+    const { data: plan, error: planErr } = await supabase
+      .from("subscription_plans")
+      .select("id, name, price_pen, billing_period")
+      .eq("id", params.targetPlanId)
+      .single();
+
+    if (planErr || !plan) {
+      return { success: false, error: "El plan seleccionado no es válido." };
+    }
+
+    let { data: sub } = await supabase
+      .from("lawyer_subscriptions")
+      .select("id")
+      .eq("lawyer_id", lawyer.id)
+      .maybeSingle();
+
+    const periodDays = plan.billing_period === "annual" ? 365 : 30;
+    const periodEnd = new Date(now.getTime() + periodDays * 86400000).toISOString();
+    const cardBrand = digits.startsWith("4")
+      ? "Visa"
+      : digits.startsWith("5")
+      ? "Mastercard"
+      : digits.startsWith("3")
+      ? "Amex/Diners"
+      : "Tarjeta";
+    const lastFour = digits.slice(-4);
+
+    if (!sub) {
+      const { data: createdSub, error: createSubErr } = await supabase
+        .from("lawyer_subscriptions")
+        .insert({
+          lawyer_id: lawyer.id,
+          plan_id: plan.id,
+          status: "active",
+          current_period_start: now.toISOString(),
+          current_period_end: periodEnd,
+          external_provider: "card_direct",
+          card_brand: cardBrand,
+          card_last_four: lastFour,
+          matches_used_this_period: 0,
+        })
+        .select("id")
+        .single();
+
+      if (createSubErr || !createdSub) {
+        return {
+          success: false,
+          error: `No se pudo activar la suscripción: ${createSubErr?.message || "Error interno"}`,
+        };
+      }
+      sub = createdSub;
+    } else {
+      const { error: updSubErr } = await supabase
+        .from("lawyer_subscriptions")
+        .update({
+          plan_id: plan.id,
+          status: "active",
+          current_period_start: now.toISOString(),
+          current_period_end: periodEnd,
+          external_provider: "card_direct",
+          card_brand: cardBrand,
+          card_last_four: lastFour,
+          matches_used_this_period: 0,
+        })
+        .eq("id", sub.id);
+
+      if (updSubErr) {
+        return { success: false, error: `Error al actualizar plan: ${updSubErr.message}` };
+      }
+    }
+
+    const opCode = `CARD-${Date.now().toString().slice(-6)}`;
+    const { data: invoice, error: invErr } = await supabase
+      .from("subscription_invoices")
+      .insert({
+        subscription_id: sub.id,
+        lawyer_id: lawyer.id,
+        target_plan_id: plan.id,
+        amount_pen: plan.price_pen,
+        status: "paid",
+        payment_method: "card",
+        invoice_type: params.invoiceType,
+        tax_id_number: taxDigits,
+        tax_legal_name: params.taxLegalName.trim(),
+        invoice_number: opCode,
+        paid_at: now.toISOString(),
+      })
+      .select("id")
+      .single();
+
+    if (invErr) {
+      console.error("Error al registrar comprobante con tarjeta:", invErr);
+    }
+
+    revalidatePath("/lawyer/subscription");
+    revalidatePath("/lawyer/dashboard");
+    revalidatePath("/admin/subscriptions");
+
+    return {
+      success: true,
+      invoiceId: invoice?.id,
+      message: `¡Suscripción ${plan.name} activada inmediatamente con tarjeta terminada en ${lastFour}! Tu comprobante ${opCode} ya figura en tu historial.`,
+    };
+  } catch (err: any) {
+    console.error("Error en processCardSubscriptionPaymentAction:", err);
+    return { success: false, error: err.message || "Error procesando el pago con tarjeta." };
   }
 }

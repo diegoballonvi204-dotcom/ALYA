@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -30,7 +30,7 @@ interface CaseDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   caseDraft: CaseDraft;
-  onSaveDraft: (draft: CaseDraft) => void;
+  onSaveDraft: (draft: CaseDraft) => void | Promise<void>;
   targetLawyerName?: string | null;
   onSendDirectInquiry?: (draft: CaseDraft) => Promise<void>;
   specialtiesList: Array<{ id: number; name: string }>;
@@ -55,9 +55,35 @@ export default function CaseDetailModal({
   const [isSending, setIsSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (isOpen) {
+      setTitle(caseDraft.title || "");
+      setDescription(caseDraft.description || "");
+      setSpecialtyId(caseDraft.specialtyId || specialtiesList[0]?.id || 1);
+      setUrgency(caseDraft.urgency || "medium");
+      setCity(caseDraft.city || "Lima");
+      setModality(caseDraft.modality || "virtual");
+      setIsConfidential(caseDraft.isConfidential ?? true);
+      setErrorMsg(null);
+      setIsSending(false);
+    }
+  }, [isOpen, caseDraft, specialtiesList]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  const handleSaveOnly = () => {
+  const handleSaveOnly = async () => {
     if (!title.trim() || title.length < 5) {
       setErrorMsg("Ingresa un título de al menos 5 caracteres para tu consulta.");
       return;
@@ -70,17 +96,26 @@ export default function CaseDetailModal({
     const selectedSpecName =
       specialtiesList.find((s) => s.id === specialtyId)?.name || caseDraft.specialtyName;
 
-    onSaveDraft({
-      title,
-      description,
-      specialtyId,
-      specialtyName: selectedSpecName,
-      urgency,
-      city,
-      modality,
-      isConfidential,
-    });
-    onClose();
+    setIsSending(true);
+    setErrorMsg(null);
+    try {
+      await onSaveDraft({
+        title,
+        description,
+        specialtyId,
+        specialtyName: selectedSpecName,
+        urgency,
+        city,
+        modality,
+        isConfidential,
+      });
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "No se pudo guardar el caso";
+      setErrorMsg(msg);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const handleSendAndMatch = async () => {
@@ -289,11 +324,21 @@ export default function CaseDetailModal({
             ) : (
               <button
                 type="button"
+                disabled={isSending}
                 onClick={handleSaveOnly}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-[#101828] hover:bg-[#1E293B] px-5 py-2.5 text-xs font-bold text-white transition-all shadow-md cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#101828] hover:bg-[#1E293B] px-5 py-2.5 text-xs font-bold text-white transition-all shadow-md cursor-pointer disabled:opacity-50"
               >
-                <CheckCircle2 className="w-4 h-4 text-blue-400" />
-                <span>Guardar detalles de mi caso</span>
+                {isSending ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Publicando caso...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-blue-400" />
+                    <span>Guardar detalles de mi caso</span>
+                  </>
+                )}
               </button>
             )}
           </div>

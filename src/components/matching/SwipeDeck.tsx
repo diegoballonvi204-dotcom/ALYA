@@ -7,6 +7,17 @@ import LawyerDetailModal from "./LawyerDetailModal";
 import { interactMatchAction, toggleFavoriteAction } from "@/actions/cases.actions";
 import { RefreshCw, List, CheckCircle2, RotateCcw, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { cleanLawyerName, formatBarLabel } from "@/lib/utils";
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+interface ExpressInterestResult {
+  success?: boolean;
+  isMatched?: boolean;
+  conversationId?: string | null;
+  message?: string;
+  error?: string;
+}
 
 interface SwipeDeckProps {
   matches: MatchRecord[];
@@ -14,7 +25,11 @@ interface SwipeDeckProps {
   onSwitchToList?: () => void;
   favoritesSet: Set<string>;
   onFavoriteChange: (lawyerId: string, isFav: boolean) => void;
-  onExpressInterest?: (lawyerId: string, lawyerName: string) => Promise<void>;
+  onExpressInterest?: (
+    lawyerId: string,
+    lawyerName: string,
+    score?: number
+  ) => Promise<ExpressInterestResult | void>;
 }
 
 export default function SwipeDeck({
@@ -50,7 +65,10 @@ export default function SwipeDeck({
       const current = deck[0];
       const interested = direction === "right";
       const lawyer = current.lawyer_profiles;
-      const fullName = `${lawyer.profiles.first_name} ${lawyer.profiles.last_name}`;
+      const fullName = cleanLawyerName(
+        `${lawyer.profiles.first_name || ""} ${lawyer.profiles.last_name || ""}`
+      );
+      const formattedBar = formatBarLabel(lawyer.bar_association, lawyer.bar_number);
 
       // Save into history for Undo
       setSwipedHistory((prev) => [...prev, current]);
@@ -61,7 +79,7 @@ export default function SwipeDeck({
       if (interested && (current as any).lawyer_interest) {
         setMatchedLawyer({
           name: fullName,
-          bar: `${lawyer.bar_association} • Reg. ${lawyer.bar_number}`,
+          bar: formattedBar,
           title: lawyer.professional_title,
           conversationId: (current as any).conversations?.id || null,
           consultationPrice: lawyer.consultation_price,
@@ -69,20 +87,33 @@ export default function SwipeDeck({
       }
 
       try {
+        let directMatched = false;
         if (interested && onExpressInterest) {
-          await onExpressInterest(lawyer.id, fullName);
+          const directRes = await onExpressInterest(lawyer.id, fullName, current.score);
+          if (directRes?.isMatched) {
+            directMatched = true;
+            setMatchedLawyer({
+              name: fullName,
+              bar: formattedBar,
+              title: lawyer.professional_title,
+              conversationId: directRes.conversationId || null,
+              consultationPrice: lawyer.consultation_price,
+            });
+          }
         }
 
-        const res = await interactMatchAction(current.id, interested);
+        if (UUID_REGEX.test(current.id) && !onExpressInterest && !directMatched) {
+          const res = await interactMatchAction(current.id, interested);
 
-        if (res?.isMatched) {
-          setMatchedLawyer({
-            name: fullName,
-            bar: `${lawyer.bar_association} • Reg. ${lawyer.bar_number}`,
-            title: lawyer.professional_title,
-            conversationId: res.conversationId,
-            consultationPrice: lawyer.consultation_price,
-          });
+          if (res?.isMatched) {
+            setMatchedLawyer({
+              name: fullName,
+              bar: formattedBar,
+              title: lawyer.professional_title,
+              conversationId: res.conversationId,
+              consultationPrice: lawyer.consultation_price,
+            });
+          }
         }
       } catch (err) {
         console.error("Error al registrar interacción de match:", err);

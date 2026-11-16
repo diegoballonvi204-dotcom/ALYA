@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { AlertCircle } from "lucide-react";
 import { RegisterForm } from "@/components/forms/RegisterForm";
+
+export const metadata: Metadata = {
+  title: "Crear Cuenta | ALYA Perú",
+  description:
+    "Regístrate como cliente para describir tu caso legal o como abogado colegiado para recibir consultas compatibles en el Perú.",
+};
 
 export default async function RegisterPage({
   searchParams,

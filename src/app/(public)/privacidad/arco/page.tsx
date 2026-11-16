@@ -1,8 +1,15 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { ArcoForm } from "@/components/privacy/ArcoForm";
 import { getUserArcoRequestsAction } from "@/actions/arco.actions";
 import { ShieldCheck, ArrowLeft, Scale } from "lucide-react";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Derechos ARCO | ALYA Perú",
+  description:
+    "Ejerce tus derechos de Acceso, Rectificación, Cancelación y Oposición conforme a la Ley N.° 29733 en ALYA LegalTech Perú.",
+};
 
 export default async function ArcoPortalPage() {
   const supabase = await createClient();
@@ -68,7 +75,7 @@ export default async function ArcoPortalPage() {
       {/* Main Interactive Form */}
       <ArcoForm
         initialRequests={requests || []}
-        userEmail={user?.email || ""}
+        userEmail={(user?.email || "").replace(/@legalmatch\.pe$/i, "@alya.pe")}
         userName={userName}
       />
     </div>

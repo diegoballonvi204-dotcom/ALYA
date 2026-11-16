@@ -19,6 +19,7 @@ import {
   type LawyerFinancesSummary,
 } from "@/actions/payouts.actions";
 import { RequestPayoutModal } from "@/components/lawyer/RequestPayoutModal";
+import { formatLimaDate } from "@/lib/utils";
 
 export default function LawyerFinancesPage() {
   const [finances, setFinances] = useState<LawyerFinancesSummary | null>(null);
@@ -36,6 +37,7 @@ export default function LawyerFinancesPage() {
   };
 
   useEffect(() => {
+    document.title = "Finanzas y Liquidaciones | ALYA Perú";
     loadData();
   }, []);
 
@@ -84,9 +86,13 @@ export default function LawyerFinancesPage() {
               <Wallet className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold font-mono text-emerald-950">
-            S/ {available.toFixed(2)}
-          </div>
+          {loading ? (
+            <div className="h-9 w-28 rounded-xl bg-emerald-100 animate-pulse" aria-label="Cargando saldo disponible" />
+          ) : (
+            <div className="text-3xl font-bold font-mono text-emerald-950">
+              S/ {available.toFixed(2)}
+            </div>
+          )}
           <p className="text-[11px] text-emerald-700 mt-2 font-medium">
             Fondos liberados tras conclusión de citas.
           </p>
@@ -102,9 +108,13 @@ export default function LawyerFinancesPage() {
               <Clock className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold font-mono text-amber-950">
-            S/ {escrow.toFixed(2)}
-          </div>
+          {loading ? (
+            <div className="h-9 w-28 rounded-xl bg-amber-100 animate-pulse" aria-label="Cargando saldo en custodia" />
+          ) : (
+            <div className="text-3xl font-bold font-mono text-amber-950">
+              S/ {escrow.toFixed(2)}
+            </div>
+          )}
           <p className="text-[11px] text-amber-700 mt-2 font-medium">
             Se liberan al marcar la consulta como realizada.
           </p>
@@ -120,9 +130,13 @@ export default function LawyerFinancesPage() {
               <ShieldCheck className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold font-mono text-[#0F172A]">
-            S/ {totalEarned.toFixed(2)}
-          </div>
+          {loading ? (
+            <div className="h-9 w-28 rounded-xl bg-slate-200 animate-pulse" aria-label="Cargando total facturado" />
+          ) : (
+            <div className="text-3xl font-bold font-mono text-[#0F172A]">
+              S/ {totalEarned.toFixed(2)}
+            </div>
+          )}
           <p className="text-[11px] text-slate-500 mt-2 font-medium">
             Volumen acumulado en la plataforma.
           </p>
@@ -138,9 +152,13 @@ export default function LawyerFinancesPage() {
               <Building2 className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-3xl font-bold font-mono text-slate-800">
-            S/ {totalWithdrawn.toFixed(2)}
-          </div>
+          {loading ? (
+            <div className="h-9 w-28 rounded-xl bg-slate-200 animate-pulse" aria-label="Cargando retiros liquidados" />
+          ) : (
+            <div className="text-3xl font-bold font-mono text-slate-800">
+              S/ {totalWithdrawn.toFixed(2)}
+            </div>
+          )}
           <p className="text-[11px] text-slate-500 mt-2 font-medium">
             Transferidos a tus cuentas bancarias.
           </p>
@@ -206,11 +224,7 @@ export default function LawyerFinancesPage() {
                       </td>
                       <td className="p-4 sm:px-6 text-slate-600">{m.clientName}</td>
                       <td className="p-4 sm:px-6 text-slate-500 font-mono">
-                        {new Date(m.date).toLocaleDateString("es-PE", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {formatLimaDate(m.date)}
                       </td>
                       <td className="p-4 sm:px-6 font-mono font-bold text-[#0F172A]">
                         S/ {m.amountPen.toFixed(2)}
@@ -265,11 +279,7 @@ export default function LawyerFinancesPage() {
                   finances?.payouts.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50/50 transition-colors">
                       <td className="p-4 sm:px-6 font-mono text-slate-500">
-                        {new Date(p.requestedAt).toLocaleDateString("es-PE", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {formatLimaDate(p.requestedAt)}
                       </td>
                       <td className="p-4 sm:px-6 font-semibold text-[#0F172A]">
                         {p.bankName}

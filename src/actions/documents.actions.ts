@@ -7,6 +7,53 @@ import {
 } from "@/lib/validations/document.schema";
 import { revalidatePath } from "next/cache";
 
+async function verifyCaseAccess(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  caseId: string,
+  userId: string
+): Promise<{
+  isClient: boolean;
+  isMatchedLawyer: boolean;
+  isAdmin: boolean;
+  allowed: boolean;
+}> {
+  const { data: caseItem } = await supabase
+    .from("cases")
+    .select("id, user_id")
+    .eq("id", caseId)
+    .maybeSingle();
+
+  if (!caseItem) {
+    return { isClient: false, isMatchedLawyer: false, isAdmin: false, allowed: false };
+  }
+
+  const isClient = caseItem.user_id === userId;
+  if (isClient) {
+    return { isClient: true, isMatchedLawyer: false, isAdmin: false, allowed: true };
+  }
+
+  const { data: match } = await supabase
+    .from("matches")
+    .select("id, lawyer_profiles!inner(user_id)")
+    .eq("case_id", caseId)
+    .eq("status", "matched")
+    .eq("lawyer_profiles.user_id", userId)
+    .maybeSingle();
+
+  if (match) {
+    return { isClient: false, isMatchedLawyer: true, isAdmin: false, allowed: true };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
+  const isAdmin = profile?.role === "admin";
+  return { isClient: false, isMatchedLawyer: false, isAdmin, allowed: isAdmin };
+}
+
 export async function uploadCaseDocumentAction(formData: UploadCaseDocValues) {
   const validated = UploadCaseDocSchema.safeParse(formData);
   if (!validated.success) {
@@ -20,6 +67,14 @@ export async function uploadCaseDocumentAction(formData: UploadCaseDocValues) {
 
   if (!user) {
     return { error: "No autenticado" };
+  }
+
+  const sp = validated.data.storagePath;
+  if (
+    sp.includes("..") ||
+    (!sp.startsWith(`${validated.data.caseId}/`) && !sp.startsWith(`${user.id}/`))
+  ) {
+    return { error: "Ruta de almacenamiento no autorizada." };
   }
 
   // 1. Verificar si el usuario es dueño del caso o abogado con match
@@ -136,18 +191,13 @@ export async function getCaseDocumentsAction(caseId: string) {
     return { error: "No autenticado", documents: [] };
   }
 
-  // Verificar rol del usuario en este caso
-  const { data: caseItem } = await supabase
-    .from("cases")
-    .select("id, user_id")
-    .eq("id", caseId)
-    .single();
-
-  if (!caseItem) {
-    return { error: "Caso no encontrado", documents: [] };
+  // Verificar acceso autorizado al caso (cliente propietario, abogado con match o admin)
+  const access = await verifyCaseAccess(supabase, caseId, user.id);
+  if (!access.allowed) {
+    return { error: "No tienes acceso a los documentos de este expediente.", documents: [] };
   }
 
-  const isClient = caseItem.user_id === user.id;
+  const isClient = access.isClient;
 
   let query = supabase
     .from("case_documents")
@@ -225,6 +275,17 @@ export async function getCaseDocumentSignedUrlAction(documentId: string) {
 
   if (docErr || !doc) {
     return { error: "Documento no encontrado." };
+  }
+
+  const access = await verifyCaseAccess(supabase, doc.case_id, user.id);
+  const canRead =
+    access.isClient ||
+    access.isAdmin ||
+    doc.uploaded_by === user.id ||
+    (access.isMatchedLawyer && doc.visibility === "shared_match");
+
+  if (!canRead) {
+    return { error: "Acceso denegado al documento solicitado." };
   }
 
   // Generar URL firmada con expiración de 1 hora (3600 segundos)

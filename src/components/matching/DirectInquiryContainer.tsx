@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import SwipeDeck from "./SwipeDeck";
 import LawyerListView from "./LawyerListView";
 import CaseDetailModal, { type CaseDraft } from "./CaseDetailModal";
 import type { MatchRecord } from "./SwipeCard";
+import { calculateFiveFactorAffinity, cleanLawyerName } from "@/lib/utils";
 import {
   directMatchWithLawyerAction,
+  saveClientCaseDraftAction,
   toggleFavoriteAction,
   updateCaseStatusAction,
   type CaseStatus,
@@ -69,6 +71,8 @@ interface DirectInquiryContainerProps {
   userCity?: string;
   initialFavorites?: string[];
   userCases?: UserCaseItem[];
+  initialSelectedLawyerId?: string;
+  initialSpecialtySlug?: string;
   backHref?: string;
   backLabel?: string;
 }
@@ -79,6 +83,8 @@ export default function DirectInquiryContainer({
   userCity = "Lima",
   initialFavorites = [],
   userCases = [],
+  initialSelectedLawyerId,
+  initialSpecialtySlug,
   backHref = "",
   backLabel = "",
 }: DirectInquiryContainerProps) {
@@ -89,8 +95,12 @@ export default function DirectInquiryContainer({
   const [localCases, setLocalCases] = useState<UserCaseItem[]>(userCases);
   const [updatingCaseId, setUpdatingCaseId] = useState<string | null>(null);
 
+  useEffect(() => {
+    setLocalCases(userCases);
+  }, [userCases]);
+
   // Selected case state for clients with multiple cases
-  const initialCase = localCases[0] || null;
+  const initialCase = userCases[0] || null;
   const [selectedCaseId, setSelectedCaseId] = useState<string>(initialCase ? initialCase.id : "new");
 
   // Active selected case helper
@@ -147,8 +157,28 @@ export default function DirectInquiryContainer({
     }
   };
 
+  const matchedUrlSpecialty = useMemo(() => {
+    if (!initialSpecialtySlug) return null;
+    const q = initialSpecialtySlug.toLowerCase().trim();
+    return (
+      specialties.find(
+        (s) => s.slug?.toLowerCase() === q || s.name.toLowerCase().includes(q)
+      ) || null
+    );
+  }, [initialSpecialtySlug, specialties]);
+
   // Primary filters
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string>(() => {
+    if (matchedUrlSpecialty && !initialSelectedLawyerId) {
+      const hasLawyers = initialLawyers.some((m) =>
+        m.lawyer_profiles.lawyer_specialties?.some(
+          (s) => s.specialties?.name.toLowerCase() === matchedUrlSpecialty.name.toLowerCase()
+        )
+      );
+      if (hasLawyers) return matchedUrlSpecialty.name;
+    }
+    return "all";
+  });
   const [selectedCity, setSelectedCity] = useState<string>("all");
   const [selectedModality, setSelectedModality] = useState<"all" | "virtual" | "physical">("all");
   const [selectedUrgency, setSelectedUrgency] = useState<string>("all");
@@ -165,8 +195,12 @@ export default function DirectInquiryContainer({
   const [caseDraft, setCaseDraft] = useState<CaseDraft>({
     title: initialCase?.title || "Consulta Legal Directa",
     description: initialCase?.description || "",
-    specialtyId: initialCase?.specialty_id || specialties[0]?.id || 1,
-    specialtyName: initialCase?.specialties?.name || specialties[0]?.name || "Derecho Laboral",
+    specialtyId: matchedUrlSpecialty?.id || initialCase?.specialty_id || specialties[0]?.id || 1,
+    specialtyName:
+      matchedUrlSpecialty?.name ||
+      initialCase?.specialties?.name ||
+      specialties[0]?.name ||
+      "Derecho Laboral",
     urgency: initialCase?.urgency || "medium",
     city: initialCase?.city || userCity,
     modality: (initialCase?.modality as any) || "virtual",
@@ -179,16 +213,85 @@ export default function DirectInquiryContainer({
     id: string;
     name: string;
   } | null>(null);
+  const [sentInquiryModal, setSentInquiryModal] = useState<{
+    lawyerName: string;
+    message: string;
+    conversationId?: string | null;
+    isError?: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!sentInquiryModal) return;
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setSentInquiryModal(null);
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [sentInquiryModal]);
 
   // Favorites state
   const [favoritesSet, setFavoritesSet] = useState<Set<string>>(
     new Set(initialFavorites)
   );
 
+  // Dynamically recompute 5-factor affinity for the active case draft & prioritize pre-selected lawyerId
+  const scoredLawyers = useMemo(() => {
+    const criteria = {
+      specialtyId: caseDraft.specialtyId,
+      specialtyName: caseDraft.specialtyName,
+      city: caseDraft.city || userCity,
+      modality: caseDraft.modality || "virtual",
+    };
+    const targetKey = (initialSelectedLawyerId || "").trim().toLowerCase();
+
+    return initialLawyers
+      .map((m) => {
+        const aff = calculateFiveFactorAffinity(m.lawyer_profiles, criteria);
+        return {
+          ...m,
+          score: aff.score,
+          breakdown: {
+            ...(m.breakdown || {}),
+            ...aff.breakdown,
+          },
+        };
+      })
+      .sort((a, b) => {
+        if (targetKey) {
+          const aFull = `${a.lawyer_profiles.profiles.first_name || ""} ${a.lawyer_profiles.profiles.last_name || ""}`.toLowerCase();
+          const bFull = `${b.lawyer_profiles.profiles.first_name || ""} ${b.lawyer_profiles.profiles.last_name || ""}`.toLowerCase();
+          const normalizedKey = targetKey.replace(/-/g, " ");
+          const aMatch =
+            a.lawyer_id.toLowerCase() === targetKey ||
+            a.lawyer_profiles.id.toLowerCase() === targetKey ||
+            a.lawyer_profiles.user_id?.toLowerCase() === targetKey ||
+            aFull.includes(normalizedKey);
+          const bMatch =
+            b.lawyer_id.toLowerCase() === targetKey ||
+            b.lawyer_profiles.id.toLowerCase() === targetKey ||
+            b.lawyer_profiles.user_id?.toLowerCase() === targetKey ||
+            bFull.includes(normalizedKey);
+          if (aMatch && !bMatch) return -1;
+          if (!aMatch && bMatch) return 1;
+        }
+        return b.score - a.score;
+      });
+  }, [
+    initialLawyers,
+    caseDraft.specialtyId,
+    caseDraft.specialtyName,
+    caseDraft.city,
+    caseDraft.modality,
+    userCity,
+    initialSelectedLawyerId,
+  ]);
+
   // List of currently favorited lawyers
   const favoriteLawyers = useMemo(() => {
-    return initialLawyers.filter((l) => favoritesSet.has(l.lawyer_profiles.id));
-  }, [initialLawyers, favoritesSet]);
+    return scoredLawyers.filter((l) => favoritesSet.has(l.lawyer_profiles.id));
+  }, [scoredLawyers, favoritesSet]);
 
   // Success match toast feedback
   const [matchSuccessBanner, setMatchSuccessBanner] = useState<{
@@ -199,16 +302,16 @@ export default function DirectInquiryContainer({
   // Unique cities list
   const availableCities = useMemo(() => {
     const set = new Set<string>();
-    initialLawyers.forEach((l) => {
+    scoredLawyers.forEach((l) => {
       const c = l.lawyer_profiles.profiles.city;
       if (c) set.add(c);
     });
     return Array.from(set).sort();
-  }, [initialLawyers]);
+  }, [scoredLawyers]);
 
   // Real-time filtering of lawyers
   const filteredLawyers = useMemo(() => {
-    let result = [...initialLawyers];
+    let result = [...scoredLawyers];
 
     // Specialty filter
     if (selectedSpecialty !== "all") {
@@ -261,7 +364,7 @@ export default function DirectInquiryContainer({
 
     return result;
   }, [
-    initialLawyers,
+    scoredLawyers,
     selectedSpecialty,
     selectedCity,
     selectedModality,
@@ -318,39 +421,131 @@ export default function DirectInquiryContainer({
     });
   };
 
+  const handleSaveCaseDraft = useCallback(
+    async (draft: CaseDraft) => {
+      setCaseDraft(draft);
+      const res = await saveClientCaseDraftAction({
+        caseId: selectedCaseId !== "new" ? selectedCaseId : undefined,
+        title: draft.title,
+        description: draft.description,
+        specialtyId: draft.specialtyId,
+        urgency: draft.urgency,
+        city: draft.city,
+        modality: draft.modality,
+        isConfidential: draft.isConfidential,
+      });
+
+      if (res?.error) {
+        throw new Error(res.error);
+      }
+
+      if (res?.success && res.caseItem) {
+        const saved = res.caseItem as UserCaseItem;
+        setSelectedCaseId(saved.id);
+        setLocalCases((prev) => {
+          const exists = prev.some((c) => c.id === saved.id);
+          if (exists) {
+            return prev.map((c) => (c.id === saved.id ? saved : c));
+          }
+          return [saved, ...prev];
+        });
+        setMatchSuccessBanner({
+          text: "Caso guardado y publicado con éxito. Los abogados compatibles ya pueden revisarlo y aceptar atenderte.",
+          conversationId: undefined,
+        });
+      }
+    },
+    [selectedCaseId]
+  );
+
   const sendInquiryToLawyer = useCallback(
-    async (lawyerId: string, lawyerName: string, draft: CaseDraft) => {
+    async (lawyerId: string, lawyerName: string, draft: CaseDraft, score?: number) => {
       try {
         const res = await directMatchWithLawyerAction({
           lawyerId,
+          caseId: selectedCaseId !== "new" ? selectedCaseId : undefined,
           title: draft.title || "Consulta Legal Directa",
-          description: draft.description || "Consulta enviada directamente desde el explorador de abogados.",
+          description:
+            draft.description ||
+            "Consulta enviada directamente desde el explorador de abogados.",
           specialtyId: draft.specialtyId,
           city: draft.city,
           modality: draft.modality,
           urgency: draft.urgency,
           isConfidential: draft.isConfidential,
+          score,
         });
 
         if (res?.success) {
+          if (res.caseId) {
+            setSelectedCaseId(res.caseId);
+            setLocalCases((prev) => {
+              if (prev.some((c) => c.id === res.caseId)) return prev;
+              const newItem: UserCaseItem = {
+                id: res.caseId,
+                title: draft.title || "Consulta Legal Directa",
+                description: draft.description || "",
+                status: res.isMatched ? "in_consultation" : "published",
+                city: draft.city || userCity,
+                specialty_id: draft.specialtyId,
+                specialties: { name: draft.specialtyName || "General" },
+                urgency: draft.urgency,
+                modality: draft.modality,
+                created_at: new Date().toISOString(),
+              };
+              return [newItem, ...prev];
+            });
+          }
+
           if (res.isMatched) {
             setMatchSuccessBanner({
               text: `¡Interés confirmado con ${lawyerName}! Conexión establecida. Ya puedes acceder para abonar e iniciar la consulta.`,
               conversationId: res.conversationId,
             });
           } else {
+            const sentMsg = `Hemos enviado tu consulta a ${lawyerName}. Recibirás una notificación en cuanto acepte tu solicitud para coordinar el abono en custodia e iniciar la atención.`;
             setMatchSuccessBanner({
-              text: `¡Consulta enviada a ${lawyerName}! Se ha notificado al abogado. En cuanto acepte tu solicitud, recibirás una notificación y alerta en pantalla para ir a la conversación, realizar el abono y comenzar la consulta.`,
-              conversationId: undefined,
+              text: sentMsg,
+              conversationId: res.conversationId,
+            });
+            setSentInquiryModal({
+              lawyerName,
+              message: sentMsg,
+              conversationId: res.conversationId,
+              isError: false,
             });
           }
           setTimeout(() => setMatchSuccessBanner(null), 15000);
+          return {
+            success: true,
+            isMatched: Boolean(res.isMatched),
+            conversationId: res.conversationId,
+            message: res.message,
+          };
+        }
+
+        if (res?.error) {
+          setSentInquiryModal({
+            lawyerName,
+            message: res.error,
+            isError: true,
+          });
+          return { success: false, error: res.error };
         }
       } catch (err) {
         console.error("Error al enviar consulta directa:", err);
+        const fallbackErr =
+          "No se pudo completar el envío de la consulta en este momento. Intenta nuevamente.";
+        setSentInquiryModal({
+          lawyerName,
+          message: fallbackErr,
+          isError: true,
+        });
+        return { success: false, error: fallbackErr };
       }
+      return { success: false };
     },
-    []
+    [selectedCaseId, userCity]
   );
 
   const resetFilters = () => {
@@ -420,11 +615,10 @@ export default function DirectInquiryContainer({
             role="tab"
             aria-selected={viewMode === "swipe"}
             onClick={() => setViewMode("swipe")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-              viewMode === "swipe"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "swipe"
                 ? "bg-white text-slate-900 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <Layers className="w-3.5 h-3.5 text-blue-600" />
             <span>Tarjetas</span>
@@ -436,11 +630,10 @@ export default function DirectInquiryContainer({
             role="tab"
             aria-selected={viewMode === "list"}
             onClick={() => setViewMode("list")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-              viewMode === "list"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "list"
                 ? "bg-white text-slate-900 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <List className="w-3.5 h-3.5 text-blue-600" />
             <span>Directorio ({filteredLawyers.length})</span>
@@ -452,16 +645,14 @@ export default function DirectInquiryContainer({
             role="tab"
             aria-selected={viewMode === "saved"}
             onClick={() => setViewMode("saved")}
-            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-              viewMode === "saved"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "saved"
                 ? "bg-white text-slate-900 shadow-2xs"
                 : "text-slate-600 hover:text-slate-900"
-            }`}
+              }`}
           >
             <Heart
-              className={`w-3.5 h-3.5 ${
-                favoriteLawyers.length > 0 ? "fill-rose-500 text-rose-500" : "text-slate-500"
-              }`}
+              className={`w-3.5 h-3.5 ${favoriteLawyers.length > 0 ? "fill-rose-500 text-rose-500" : "text-slate-500"
+                }`}
             />
             <span>Mis guardados ({favoriteLawyers.length})</span>
           </button>
@@ -473,11 +664,10 @@ export default function DirectInquiryContainer({
               role="tab"
               aria-selected={viewMode === "cases"}
               onClick={() => setViewMode("cases")}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                viewMode === "cases"
+              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${viewMode === "cases"
                   ? "bg-white text-slate-900 shadow-2xs"
                   : "text-slate-600 hover:text-slate-900"
-              }`}
+                }`}
             >
               <Briefcase className="w-3.5 h-3.5 text-blue-600" />
               <span>Mis Casos ({localCases.length})</span>
@@ -782,7 +972,7 @@ export default function DirectInquiryContainer({
         <main className="space-y-4 pt-1 font-sans">
           <div className="flex items-center justify-between">
             <h2 className="text-base sm:text-lg font-bold text-slate-900 font-sans">
-              Mis Consultas y Casos Registrados ({userCases.length})
+              Mis Consultas y Casos Registrados ({localCases.length})
             </h2>
             <button
               type="button"
@@ -803,11 +993,10 @@ export default function DirectInquiryContainer({
               return (
                 <div
                   key={c.id}
-                  className={`flex flex-col justify-between rounded-2xl border p-5 transition-all shadow-2xs ${
-                    isSelected
+                  className={`flex flex-col justify-between rounded-2xl border p-5 transition-all shadow-2xs ${isSelected
                       ? "border-blue-500 bg-blue-50/40 ring-2 ring-blue-500/20"
                       : "border-slate-200 bg-white hover:border-blue-400 hover:shadow-md"
-                  }`}
+                    }`}
                 >
                   <div>
                     {/* Header tags: Specialty & Lifecycle Status Badge */}
@@ -1084,10 +1273,10 @@ export default function DirectInquiryContainer({
                       {caseDraft.urgency === "immediate"
                         ? "Flagrancia (24h)"
                         : caseDraft.urgency === "high"
-                        ? "Alta"
-                        : caseDraft.urgency === "medium"
-                        ? "Media"
-                        : "Ordinaria"}
+                          ? "Alta"
+                          : caseDraft.urgency === "medium"
+                            ? "Media"
+                            : "Ordinaria"}
                     </span>
                   </div>
                 </div>
@@ -1114,8 +1303,8 @@ export default function DirectInquiryContainer({
                 onSwitchToList={() => setViewMode("list")}
                 favoritesSet={favoritesSet}
                 onFavoriteChange={handleFavoriteChange}
-                onExpressInterest={async (lawyerId, lawyerName) => {
-                  await sendInquiryToLawyer(lawyerId, lawyerName, caseDraft);
+                onExpressInterest={async (lawyerId, lawyerName, score) => {
+                  return sendInquiryToLawyer(lawyerId, lawyerName, caseDraft, score);
                 }}
               />
             </div>
@@ -1196,8 +1385,91 @@ export default function DirectInquiryContainer({
             caseId={selectedCaseId || "direct_inquiry"}
             favoritesSet={favoritesSet}
             onFavoriteChange={handleFavoriteChange}
+            onExpressInterest={async (lawyerId, lawyerName, score) => {
+              return sendInquiryToLawyer(lawyerId, lawyerName, caseDraft, score);
+            }}
           />
         </main>
+      )}
+
+      {/* Immediate Feedback Modal on Expressing Interest (Me interesa / Conectar) */}
+      {sentInquiryModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/55 backdrop-blur-xs"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="sent-inquiry-title"
+          onClick={() => setSentInquiryModal(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-2xl space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`mx-auto flex h-14 w-14 items-center justify-center rounded-2xl ${sentInquiryModal.isError
+                  ? "bg-rose-50 text-rose-600"
+                  : "bg-emerald-50 text-emerald-600"
+                }`}
+            >
+              {sentInquiryModal.isError ? (
+                <AlertCircle className="w-7 h-7" />
+              ) : (
+                <CheckCircle2 className="w-7 h-7" />
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <span
+                className={`inline-block rounded-full px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider ${sentInquiryModal.isError
+                    ? "bg-rose-50 text-rose-700"
+                    : "bg-blue-50 text-blue-700"
+                  }`}
+              >
+                {sentInquiryModal.isError
+                  ? "No se pudo enviar la solicitud"
+                  : "Solicitud de Asesoría Enviada"}
+              </span>
+              <h3 id="sent-inquiry-title" className="text-lg font-bold text-slate-900">
+                {sentInquiryModal.isError
+                  ? "Atención"
+                  : `Interés registrado con ${cleanLawyerName(sentInquiryModal.lawyerName)}`}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {sentInquiryModal.message}
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+              {!sentInquiryModal.isError && sentInquiryModal.conversationId && (
+                <Link
+                  href={`/chat/${sentInquiryModal.conversationId}`}
+                  onClick={() => setSentInquiryModal(null)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#2563EB] hover:bg-blue-700 py-2.5 px-4 text-xs font-bold text-white transition-colors"
+                >
+                  <span>Ir a Mensajes</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={() => setSentInquiryModal(null)}
+                className="flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 py-2.5 px-4 text-xs font-bold text-white transition-colors cursor-pointer"
+              >
+                Seguir explorando especialistas
+              </button>
+              {!sentInquiryModal.isError && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSentInquiryModal(null);
+                    setViewMode("cases");
+                  }}
+                  className="rounded-xl border border-slate-200 hover:bg-slate-50 py-2.5 px-4 text-xs font-semibold text-slate-700 transition-colors cursor-pointer"
+                >
+                  Ver mis casos ({localCases.length})
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Case Creation / Edit Modal */}
@@ -1205,9 +1477,11 @@ export default function DirectInquiryContainer({
         isOpen={isDetailModalOpen}
         onClose={() => setIsDetailModalOpen(false)}
         caseDraft={caseDraft}
-        onSaveDraft={(draft) => {
+        onSaveDraft={async (draft) => {
           setCaseDraft(draft);
-          setIsDetailModalOpen(false);
+          if (!pendingMatchLawyer) {
+            await handleSaveCaseDraft(draft);
+          }
         }}
         targetLawyerName={pendingMatchLawyer?.name}
         specialtiesList={specialties}

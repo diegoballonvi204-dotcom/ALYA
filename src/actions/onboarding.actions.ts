@@ -60,11 +60,19 @@ export async function submitLawyerOnboarding(values: LawyerOnboardingValues) {
     return { error: "Sesión no válida o expirada" };
   }
 
-  // 1. Asegurar que el perfil tiene rol 'lawyer'
-  await supabase
+  // 1. Asegurar que el perfil tiene rol 'lawyer' (sin degradar roles administrativos existentes)
+  const { data: currentProfile } = await supabase
     .from("profiles")
-    .update({ role: "lawyer" })
-    .eq("id", user.id);
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (currentProfile?.role !== "admin" && currentProfile?.role !== "verifier") {
+    await supabase
+      .from("profiles")
+      .update({ role: "lawyer" })
+      .eq("id", user.id);
+  }
 
   // 2. Guardar o actualizar lawyer_profiles
   const { data: lawyerProfile, error: lawyerError } = await supabase

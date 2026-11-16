@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_SPECIALTIES } from "@/lib/constants/lawyers";
 import {
   ClassifyCaseAISchema,
   type ClassifyCaseAIValues,
@@ -21,27 +22,42 @@ export interface AIClassificationResult {
 export async function classifyCaseWithAIAction(
   formData: ClassifyCaseAIValues
 ): Promise<{ error?: string; result?: AIClassificationResult }> {
-  const validated = ClassifyCaseAISchema.safeParse(formData);
+  const validated = ClassifyCaseAISchema.safeParse({
+    title: formData?.title?.trim() || "Consulta Legal",
+    description: formData?.description || "",
+    city: formData?.city || "Lima",
+  });
   if (!validated.success) {
-    return { error: "Datos de caso insuficientes para el análisis de IA" };
+    return { error: "Escribe al menos 15 caracteres en la descripción para orientar el caso." };
   }
 
-  const supabase = await createClient();
+  let allSpecialties: Array<{ id: number; name: string; parent_id: number | null }> = [];
+  try {
+    const supabase = await createClient();
+    const { data, error: specErr } = await supabase
+      .from("specialties")
+      .select("id, name, parent_id")
+      .eq("is_active", true);
 
-  // 1. Obtener especialidades activas de la base de datos
-  const { data: allSpecialties, error: specErr } = await supabase
-    .from("specialties")
-    .select("id, name, parent_id")
-    .eq("is_active", true);
+    if (!specErr && data && data.length > 0) {
+      allSpecialties = data;
+    }
+  } catch (err) {
+    console.warn("Fallback a catálogo local de especialidades en classifyCaseWithAIAction:", err);
+  }
 
-  if (specErr || !allSpecialties) {
-    return { error: "No se pudo consultar el catálogo legal." };
+  if (allSpecialties.length === 0) {
+    allSpecialties = DEFAULT_SPECIALTIES.map((s) => ({
+      id: s.id,
+      name: s.name,
+      parent_id: null,
+    }));
   }
 
   const mainSpecialties = allSpecialties.filter((s) => !s.parent_id);
   const subspecialties = allSpecialties.filter((s) => s.parent_id);
 
-  const textToAnalyze = `${validated.data.title} ${validated.data.description}`.toLowerCase();
+  const textToAnalyze = `${validated.data.title || ""} ${validated.data.description}`.toLowerCase();
 
   // 2. Diccionario de Taxonomía Jurídica Peruana
   const domainRules = [
@@ -50,11 +66,13 @@ export async function classifyCaseWithAIAction(
       keywords: [
         "despido",
         "liquidación",
+        "liquidacion",
         "sueldo",
         "cts",
         "sunafil",
         "renuncia",
         "gratificación",
+        "gratificacion",
         "hostigamiento",
         "empleador",
         "trabajador",
@@ -64,10 +82,12 @@ export async function classifyCaseWithAIAction(
         "incausado",
         "vacaciones",
         "beneficios sociales",
+        "planilla",
+        "remuneración",
       ],
       subspecialtyMap: [
         { name: "Despido Arbitrario / Incausado", terms: ["despido", "botaron", "arbitrario", "incausado"] },
-        { name: "Cobro de Beneficios Sociales (CTS, Grati)", terms: ["cts", "gratificación", "liquidación", "beneficios"] },
+        { name: "Cobro de Beneficios Sociales (CTS, Grati)", terms: ["cts", "gratificación", "gratificacion", "liquidación", "liquidacion", "beneficios"] },
         { name: "Accidentes de Trabajo e Indemnizaciones", terms: ["accidente", "lesión laboral", "seguro de trabajo"] },
         { name: "Inspecciones SUNAFIL", terms: ["sunafil", "multa laboral", "inspección"] },
       ],
@@ -77,13 +97,16 @@ export async function classifyCaseWithAIAction(
       keywords: [
         "alimentos",
         "pensión",
+        "pension",
         "divorcio",
         "hijo",
         "hija",
         "tenencia",
         "régimen de visitas",
+        "regimen de visitas",
         "patria potestad",
         "filiación",
+        "filiacion",
         "adn",
         "violencia familiar",
         "cónyuge",
@@ -91,7 +114,7 @@ export async function classifyCaseWithAIAction(
         "adopción",
       ],
       subspecialtyMap: [
-        { name: "Fijación y Aumento de Pensión de Alimentos", terms: ["alimentos", "pensión", "manutención"] },
+        { name: "Fijación y Aumento de Pensión de Alimentos", terms: ["alimentos", "pensión", "pension", "manutención"] },
         { name: "Divorcio por Causal y Mutuo Acuerdo", terms: ["divorcio", "separación", "matrimonio"] },
         { name: "Tenencia Compartida y Régimen de Visitas", terms: ["tenencia", "visitas", "hijos"] },
         { name: "Filiación Extramatrimonial (Prueba de ADN)", terms: ["filiación", "reconocimiento", "adn"] },
@@ -102,6 +125,7 @@ export async function classifyCaseWithAIAction(
       keywords: [
         "denuncia",
         "fiscalía",
+        "fiscalia",
         "delito",
         "estafa",
         "apropiación",
@@ -109,67 +133,113 @@ export async function classifyCaseWithAIAction(
         "querella",
         "prisión",
         "detención",
+        "detencion",
         "policía",
         "comisaría",
+        "comisaria",
         "hurto",
         "robo",
         "fraude",
         "amenaza",
         "agresión",
+        "flagrancia",
       ],
       subspecialtyMap: [
         { name: "Delitos Contra el Patrimonio (Estafas, Apropiación)", terms: ["estafa", "fraude", "apropiación", "dinero"] },
-        { name: "Defensa en Investigación Fiscal y Detenciones", terms: ["detención", "fiscal", "comisaría", "prisión"] },
+        { name: "Defensa en Investigación Fiscal y Detenciones", terms: ["detención", "detencion", "fiscal", "comisaría", "comisaria", "prisión", "flagrancia"] },
         { name: "Delitos Contra la Vida, el Cuerpo y la Salud", terms: ["agresión", "lesiones", "golpes", "vida"] },
+      ],
+    },
+    {
+      domain: "Derecho Inmobiliario",
+      keywords: [
+        "desalojo",
+        "arrendamiento",
+        "inquilino",
+        "alquiler",
+        "predio",
+        "sunarp",
+        "propiedad",
+        "terreno",
+        "prescripción adquisitiva",
+        "inmueble",
+        "departamento",
+        "casa",
+      ],
+      subspecialtyMap: [
+        { name: "Desalojo de Inquilinos Morosos / Precarios", terms: ["desalojo", "inquilino", "alquiler", "precario"] },
+        { name: "Saneamiento de Propiedad y Prescripción Adquisitiva", terms: ["propiedad", "terreno", "título", "prescripción", "sunarp"] },
       ],
     },
     {
       domain: "Derecho Civil",
       keywords: [
         "contrato",
-        "desalojo",
-        "arrendamiento",
-        "inquilino",
-        "alquiler",
         "hipoteca",
         "embargo",
         "deuda",
         "sucesión intestada",
+        "sucesion",
         "herencia",
         "testamento",
         "compraventa",
-        "propiedad",
-        "terreno",
-        "prescripción adquisitiva",
+        "indemnización",
+        "daños y perjuicios",
+        "pagaré",
       ],
       subspecialtyMap: [
-        { name: "Desalojo de Inquilinos Morosos / Precarios", terms: ["desalojo", "inquilino", "alquiler", "precario"] },
-        { name: "Sucesión Intestada y Declaratoria de Herederos", terms: ["sucesión", "herencia", "herederos", "falleció"] },
-        { name: "Saneamiento de Propiedad y Prescripción Adquisitiva", terms: ["propiedad", "terreno", "título", "prescripción"] },
+        { name: "Sucesión Intestada y Declaratoria de Herederos", terms: ["sucesión", "sucesion", "herencia", "herederos", "falleció"] },
         { name: "Cobranza de Deudas e Incumplimiento de Contratos", terms: ["deuda", "contrato", "pagaré", "factura"] },
       ],
     },
     {
-      domain: "Derecho Comercial y Corporativo",
+      domain: "Derecho Corporativo",
       keywords: [
         "empresa",
         "sociedad",
         "socio",
         "accionistas",
-        "indecopi",
         "marca",
         "registro de marca",
-        "sunat",
-        "tributario",
         "quiebra",
-        "consumidor",
-        "libro de reclamaciones",
+        "estatuto",
+        "directorio",
+        "constitución",
       ],
       subspecialtyMap: [
-        { name: "Protección al Consumidor y Denuncias INDECOPI", terms: ["indecopi", "consumidor", "reclamaciones"] },
         { name: "Registro y Protección de Marcas y Patentes", terms: ["marca", "patente", "nombre comercial"] },
         { name: "Constitución y Conflictos Societarios", terms: ["sociedad", "empresa", "socios", "estatuto"] },
       ],
+    },
+    {
+      domain: "Protección al Consumidor",
+      keywords: [
+        "indecopi",
+        "consumidor",
+        "libro de reclamaciones",
+        "reembolso",
+        "garantía",
+        "producto defectuoso",
+        "aerolínea",
+        "banco",
+      ],
+      subspecialtyMap: [
+        { name: "Protección al Consumidor y Denuncias INDECOPI", terms: ["indecopi", "consumidor", "reclamaciones"] },
+      ],
+    },
+    {
+      domain: "Derecho Tributario",
+      keywords: [
+        "sunat",
+        "tributario",
+        "igv",
+        "impuesto",
+        "renta",
+        "multa tributaria",
+        "tribunal fiscal",
+        "coactiva",
+      ],
+      subspecialtyMap: [],
     },
   ];
 
@@ -229,7 +299,9 @@ export async function classifyCaseWithAIAction(
   const urgentTerms = [
     "detenido",
     "detención",
+    "detencion",
     "comisaría",
+    "comisaria",
     "24 horas",
     "48 horas",
     "embargo hoy",
@@ -294,15 +366,25 @@ export interface LawyerAIBriefResult {
   keyQuestions: string[];
   recommendedStrategy: string;
   applicableNorms: string[];
-  tierUnlocked: "pro" | "elite";
+  tierUnlocked: "starter" | "pro" | "elite";
+  isBasicPlan?: boolean;
 }
 
 /**
- * Genera un Resumen Ejecutivo Confidencial asistido por IA para abogados Pro y Élite.
- * Valida que la suscripción activa del abogado tenga `has_ai_assistant = true`.
+ * Genera un Resumen Ejecutivo Confidencial asistido por IA.
+ * Plan Básico recibe la síntesis fáctica, normas y preguntas clave; Pro y Élite desbloquean estrategia y alertas de caducidad avanzadas.
  */
 export async function getLawyerCaseAIBriefAction(
-  caseId: string
+  caseId: string,
+  fallbackCase?: {
+    id?: string;
+    title: string;
+    description: string;
+    city: string;
+    modality: string;
+    urgency: string;
+    specialtyName?: string;
+  }
 ): Promise<{
   success: boolean;
   isLocked?: boolean;
@@ -346,36 +428,44 @@ export async function getLawyerCaseAIBriefAction(
       .eq("lawyer_id", lawyer.id)
       .maybeSingle();
 
-    const planTier = (sub?.subscription_plans as any)?.tier || "starter";
-    const hasAi = (sub?.subscription_plans as any)?.has_ai_assistant || false;
-    const isActive = sub?.status === "active" || sub?.status === "trialing";
+    const planTier = ((sub?.subscription_plans as any)?.tier || "starter") as "starter" | "pro" | "elite";
+    const hasFullAi = Boolean((sub?.subscription_plans as any)?.has_ai_assistant) &&
+      (sub?.status === "active" || sub?.status === "trialing");
+    const isBasicPlan = !hasFullAi;
 
-    if (!isActive || !hasAi) {
-      return {
-        success: false,
-        isLocked: true,
-        error: "FEATURE_LOCKED",
-      };
-    }
-
-    // 3. Obtener datos del caso
-    const { data: c, error: caseErr } = await supabase
+    // 3. Obtener datos del caso (con respaldo si RLS impide lectura directa antes de match)
+    let c: any = null;
+    const { data: dbCase, error: caseErr } = await supabase
       .from("cases")
       .select("*, specialties:specialties!cases_specialty_id_fkey(name)")
       .eq("id", caseId)
-      .single();
+      .maybeSingle();
 
-    if (caseErr || !c) {
+    if (!caseErr && dbCase) {
+      c = dbCase;
+    } else if (fallbackCase) {
+      c = {
+        id: caseId,
+        title: fallbackCase.title,
+        description: fallbackCase.description,
+        city: fallbackCase.city,
+        modality: fallbackCase.modality,
+        urgency: fallbackCase.urgency,
+        specialties: { name: fallbackCase.specialtyName || "Materia General" },
+      };
+    }
+
+    if (!c) {
       return { success: false, error: "Caso no encontrado." };
     }
 
-    const textToAnalyze = `${c.title} ${c.description}`.toLowerCase();
-    const specialtyName = (c.specialties as any)?.name || "Materia General";
+    const textToAnalyze = `${c.title || ""} ${c.description || ""}`.toLowerCase();
+    const specialtyName = (c.specialties as any)?.name || fallbackCase?.specialtyName || "Materia General";
 
     // 4. Generar Síntesis Fáctica y Análisis Legal Especializado
     const factualSummary: string[] = [
       `El solicitante expone una controversia en ${c.city} bajo modalidad ${c.modality}.`,
-      `Planteamiento central: ${c.title}. Se describe una situación de afectación jurídica con urgencia calificada como "${c.urgency.toUpperCase()}".`,
+      `Planteamiento central: ${c.title}. Se describe una situación de afectación jurídica con urgencia calificada como "${String(c.urgency || "medium").toUpperCase()}".`,
       `El caso involucra la materia de ${specialtyName}, requiriendo patrocinio técnico especializado.`,
     ];
 
@@ -450,11 +540,14 @@ export async function getLawyerCaseAIBriefAction(
         city: c.city,
         modality: c.modality,
         factualSummary,
-        proceduralAlerts,
-        keyQuestions,
-        recommendedStrategy,
+        proceduralAlerts: isBasicPlan ? proceduralAlerts.slice(0, 1) : proceduralAlerts,
+        keyQuestions: isBasicPlan ? keyQuestions.slice(0, 2) : keyQuestions,
+        recommendedStrategy: isBasicPlan
+          ? "Análisis preliminar básico disponible. Actualiza a ALYA Pro para desbloquear la estrategia procesal completa y el mapa integral de plazos perentorios."
+          : recommendedStrategy,
         applicableNorms,
-        tierUnlocked: planTier as "pro" | "elite",
+        tierUnlocked: hasFullAi ? planTier : "starter",
+        isBasicPlan,
       },
     };
   } catch (err: any) {

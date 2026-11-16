@@ -27,8 +27,7 @@ TRUNCATE TABLE
   public.profiles
 CASCADE;
 
--- 2. Limpiar todos los archivos subidos al Storage
-DELETE FROM storage.objects;
+-- 2. Storage: vaciar los buckets desde Dashboard > Storage (storage.protect_delete bloquea DELETE en storage.objects)
 
 -- 3. Eliminar todos los usuarios registrados en Supabase Auth
 DELETE FROM auth.users;

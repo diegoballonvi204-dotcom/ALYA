@@ -39,6 +39,8 @@ export async function analyzeCaseDocumentAction(documentId: string) {
     .select(`
       id,
       case_id,
+      uploaded_by,
+      visibility,
       file_name,
       storage_path,
       mime_type,
@@ -47,6 +49,7 @@ export async function analyzeCaseDocumentAction(documentId: string) {
       analysis_status,
       cases!inner (
         id,
+        user_id,
         title,
         description,
         urgency,
@@ -60,6 +63,24 @@ export async function analyzeCaseDocumentAction(documentId: string) {
 
   if (docErr || !doc) {
     return { error: "Documento no encontrado o no autorizado." };
+  }
+
+  const caseOwnerId = (doc.cases as any)?.user_id;
+  let isAuthorizedDocUser = caseOwnerId === user.id || doc.uploaded_by === user.id;
+
+  if (!isAuthorizedDocUser && doc.visibility === "shared_match") {
+    const { data: matchedLawyer } = await supabase
+      .from("matches")
+      .select("id, lawyer_profiles!inner(user_id)")
+      .eq("case_id", doc.case_id)
+      .eq("status", "matched")
+      .eq("lawyer_profiles.user_id", user.id)
+      .maybeSingle();
+    isAuthorizedDocUser = Boolean(matchedLawyer);
+  }
+
+  if (!isAuthorizedDocUser) {
+    return { error: "No autorizado para analizar o consultar este documento." };
   }
 
   // Actualizar estado a analyzing
@@ -309,6 +330,8 @@ export async function getDocumentAiAnalysisAction(documentId: string) {
     .select(`
       id,
       case_id,
+      uploaded_by,
+      visibility,
       file_name,
       storage_path,
       file_size_bytes,
@@ -318,13 +341,34 @@ export async function getDocumentAiAnalysisAction(documentId: string) {
       ai_analysis,
       critical_deadlines,
       analyzed_at,
-      created_at
+      created_at,
+      cases!inner (
+        user_id
+      )
     `)
     .eq("id", documentId)
     .single();
 
   if (error || !doc) {
     return { error: "Documento no encontrado" };
+  }
+
+  const caseOwnerId = (doc.cases as any)?.user_id;
+  let isAuthorizedViewer = caseOwnerId === user.id || doc.uploaded_by === user.id;
+
+  if (!isAuthorizedViewer && doc.visibility === "shared_match") {
+    const { data: matchedLawyer } = await supabase
+      .from("matches")
+      .select("id, lawyer_profiles!inner(user_id)")
+      .eq("case_id", doc.case_id)
+      .eq("status", "matched")
+      .eq("lawyer_profiles.user_id", user.id)
+      .maybeSingle();
+    isAuthorizedViewer = Boolean(matchedLawyer);
+  }
+
+  if (!isAuthorizedViewer) {
+    return { error: "No autorizado para analizar o consultar este documento." };
   }
 
   return {

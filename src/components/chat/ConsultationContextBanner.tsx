@@ -14,6 +14,7 @@ import {
   MapPin,
   Sparkles,
 } from "lucide-react";
+import { formatLimaDate } from "@/lib/utils";
 
 export interface ConsultationContextData {
   id: string;
@@ -53,7 +54,7 @@ export function ConsultationContextBanner({
   }
 
   const formattedDate = consultation.scheduledAt
-    ? new Date(consultation.scheduledAt).toLocaleDateString("es-PE", {
+    ? formatLimaDate(consultation.scheduledAt, {
         weekday: "short",
         day: "numeric",
         month: "short",

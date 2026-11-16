@@ -23,27 +23,43 @@ interface SpecialtyOption {
 interface LawyerDirectoryViewProps {
   initialLawyers: LawyerCardData[];
   specialties: SpecialtyOption[];
+  initialSpecialtySlug?: string;
+  initialCity?: string;
 }
-
-const CITIES = [
-  "Lima",
-  "Arequipa",
-  "Trujillo",
-  "Chiclayo",
-  "Piura",
-  "Cusco",
-  "Huancayo",
-  "Tacna",
-  "Ica",
-];
 
 export function LawyerDirectoryView({
   initialLawyers,
   specialties,
+  initialSpecialtySlug,
+  initialCity,
 }: LawyerDirectoryViewProps) {
+  const availableCities = useMemo(() => {
+    const citySet = new Set<string>();
+    initialLawyers.forEach((l) => {
+      if (l.city && l.city.trim()) {
+        citySet.add(l.city.trim());
+      }
+    });
+    return Array.from(citySet).sort();
+  }, [initialLawyers]);
+
+  const initialMatchedSpecId = useMemo(() => {
+    if (!initialSpecialtySlug) return null;
+    const q = initialSpecialtySlug.toLowerCase().trim();
+    const matched = specialties.find(
+      (s) => s.slug?.toLowerCase() === q || s.name.toLowerCase().includes(q)
+    );
+    return matched ? matched.id : null;
+  }, [initialSpecialtySlug, specialties]);
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedSpecialty, setSelectedSpecialty] = useState<number | null>(null);
-  const [selectedCity, setSelectedCity] = useState<string>("all");
+  const [selectedSpecialty, setSelectedSpecialty] = useState<number | null>(initialMatchedSpecId);
+  const [selectedCity, setSelectedCity] = useState<string>(() => {
+    if (initialCity && availableCities.some((c) => c.toLowerCase() === initialCity.toLowerCase())) {
+      return initialCity;
+    }
+    return "all";
+  });
   const [selectedModality, setSelectedModality] = useState<"all" | "virtual" | "physical">("all");
   const [sortBy, setSortBy] = useState<"rating" | "experience" | "price_asc" | "price_desc">("rating");
 
@@ -151,8 +167,8 @@ export function LawyerDirectoryView({
               onChange={(e) => setSelectedCity(e.target.value)}
               className="w-full px-3.5 py-3 rounded-2xl bg-slate-50 border border-slate-200 text-sm text-slate-700 font-medium focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
             >
-              <option value="all">Todas las Ciudades</option>
-              {CITIES.map((c) => (
+              <option value="all">Todas las Ciudades ({availableCities.length})</option>
+              {availableCities.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>

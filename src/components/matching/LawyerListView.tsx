@@ -6,6 +6,7 @@ import ExplicabilityChips from "./ExplicabilityChips";
 import MatchModal from "./MatchModal";
 import LawyerDetailModal from "./LawyerDetailModal";
 import { interactMatchAction, toggleFavoriteAction } from "@/actions/cases.actions";
+import { cleanLawyerName, formatBarLabel, pluralize } from "@/lib/utils";
 import {
   Star,
   MapPin,
@@ -18,11 +19,24 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface LawyerListViewProps {
   matches: MatchRecord[];
   caseId: string;
   favoritesSet: Set<string>;
   onFavoriteChange: (lawyerId: string, isFav: boolean) => void;
+  onExpressInterest?: (
+    lawyerId: string,
+    lawyerName: string,
+    score?: number
+  ) => Promise<{
+    success?: boolean;
+    isMatched?: boolean;
+    conversationId?: string | null;
+    message?: string;
+    error?: string;
+  } | void>;
 }
 
 export default function LawyerListView({
@@ -30,6 +44,7 @@ export default function LawyerListView({
   caseId,
   favoritesSet,
   onFavoriteChange,
+  onExpressInterest,
 }: LawyerListViewProps) {
   // Sort state
   const [sortBy, setSortBy] = useState<
@@ -159,22 +174,44 @@ export default function LawyerListView({
 
   const handleInterest = async (match: MatchRecord) => {
     setInterestedMap((prev) => ({ ...prev, [match.id]: true }));
+    const lawyer = match.lawyer_profiles;
+    const fullName = cleanLawyerName(
+      `${lawyer.profiles.first_name || ""} ${lawyer.profiles.last_name || ""}`
+    );
+    const barLabel = formatBarLabel(lawyer.bar_association, lawyer.bar_number);
 
     try {
-      const res = await interactMatchAction(match.id, true);
+      let directMatched = false;
+      if (onExpressInterest) {
+        const directRes = await onExpressInterest(lawyer.id, fullName, match.score);
+        if (directRes?.isMatched) {
+          directMatched = true;
+          setMatchedLawyer({
+            name: fullName,
+            bar: barLabel,
+            title: lawyer.professional_title,
+            conversationId: directRes.conversationId || null,
+            consultationPrice: lawyer.consultation_price,
+          });
+        }
+      }
 
-      if (res?.isMatched) {
-        const lawyer = match.lawyer_profiles;
-        setMatchedLawyer({
-          name: `${lawyer.profiles.first_name} ${lawyer.profiles.last_name}`,
-          bar: `${lawyer.bar_association} • Reg. ${lawyer.bar_number}`,
-          title: lawyer.professional_title,
-          conversationId: res.conversationId,
-          consultationPrice: lawyer.consultation_price,
-        });
+      if (UUID_REGEX.test(match.id) && !onExpressInterest && !directMatched) {
+        const res = await interactMatchAction(match.id, true);
+
+        if (res?.isMatched) {
+          setMatchedLawyer({
+            name: fullName,
+            bar: barLabel,
+            title: lawyer.professional_title,
+            conversationId: res.conversationId,
+            consultationPrice: lawyer.consultation_price,
+          });
+        }
       }
     } catch (err) {
       console.error("Error setting interest:", err);
+      setInterestedMap((prev) => ({ ...prev, [match.id]: false }));
     }
   };
 
@@ -385,23 +422,19 @@ export default function LawyerListView({
                   <div className="space-y-1.5 flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="font-bold text-[#101828] text-base truncate font-serif">
-                        {profile.first_name} {profile.last_name}
+                        {cleanLawyerName(`${profile.first_name || ""} ${profile.last_name || ""}`)}
                       </h3>
 
                       {isVerified ? (
                         <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5E9] px-2.5 py-0.5 text-[11px] font-bold text-[#198754] font-mono">
                           <ShieldCheck className="w-3 h-3" />
-                          Habilitado CAL {lawyer.bar_number}
+                          Habilitado {formatBarLabel(lawyer.bar_association, lawyer.bar_number)}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-[#667085] font-mono">
                           En verificación
                         </span>
                       )}
-
-                      <span className="text-[11px] text-[#667085]">
-                        • {lawyer.bar_association}
-                      </span>
                     </div>
 
                     <p className="text-xs font-semibold text-[#3157D5] truncate">
@@ -413,7 +446,7 @@ export default function LawyerListView({
                         <Star className="w-3.5 h-3.5 fill-[#101828] text-[#101828]" />
                         {lawyer.rating_average ? lawyer.rating_average.toFixed(1) : "5.0"}
                         <span className="text-[#667085] font-normal">
-                          ({lawyer.total_reviews} {lawyer.total_reviews === 1 ? "reseña" : "reseñas"})
+                          ({lawyer.total_reviews} {pluralize(lawyer.total_reviews, "reseña", "reseñas")})
                         </span>
                       </span>
                       <span>•</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { cleanLawyerName, formatBarLabel, pluralize } from "@/lib/utils";
 import {
   ShieldCheck,
   Star,
@@ -44,7 +45,7 @@ interface LawyerCardProps {
 }
 
 export function LawyerCard({ lawyer }: LawyerCardProps) {
-  const fullName = `${lawyer.firstName} ${lawyer.lastName}`.trim();
+  const fullName = cleanLawyerName(`${lawyer.firstName || ""} ${lawyer.lastName || ""}`.trim());
   const initials = `${lawyer.firstName?.[0] || "A"}${lawyer.lastName?.[0] || "L"}`;
   const primarySpec =
     lawyer.specialties.find((s) => s.isPrimary)?.name ||
@@ -92,7 +93,7 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
             <div className="flex items-center gap-2 text-[11px] text-slate-500 mt-1 font-mono">
               <span className="inline-flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded text-slate-700 font-semibold">
                 <Award className="w-3 h-3 text-[#2563EB]" />
-                {lawyer.barAssociation || "CAL"} {lawyer.barNumber}
+                {formatBarLabel(lawyer.barAssociation || "CAL", lawyer.barNumber)}
               </span>
               <span>•</span>
               <span className="flex items-center gap-1">
@@ -142,7 +143,7 @@ export function LawyerCard({ lawyer }: LawyerCardProps) {
               </span>
             </div>
             <span className="text-[11px] text-slate-400">
-              ({lawyer.totalReviews} {lawyer.totalReviews === 1 ? "opinión" : "opiniones"})
+              ({lawyer.totalReviews} {pluralize(lawyer.totalReviews, "opinión", "opiniones")})
             </span>
           </div>
 
