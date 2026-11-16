@@ -18,6 +18,7 @@ import {
   Info,
 } from "lucide-react";
 import ExplicabilityChips from "./ExplicabilityChips";
+import { cleanLawyerName, formatBarLabel, pluralize } from "@/lib/utils";
 
 export interface MatchRecord {
   id: string; // match id
@@ -28,6 +29,7 @@ export interface MatchRecord {
   status: string;
   user_interest: boolean;
   lawyer_interest: boolean;
+  conversations?: { id: string } | null;
   lawyer_profiles: {
     id: string;
     user_id: string;
@@ -175,7 +177,7 @@ export default function SwipeCard({
 
               {lawyer.bar_number && (
                 <span className="text-xs text-slate-500 font-medium truncate">
-                  Reg. CAL {lawyer.bar_number}
+                  {formatBarLabel(lawyer.bar_association || "CAL", lawyer.bar_number)}
                 </span>
               )}
             </div>
@@ -222,7 +224,7 @@ export default function SwipeCard({
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
                 <h2 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 leading-snug">
-                  {profile.first_name} {profile.last_name}
+                  {cleanLawyerName(`${profile.first_name || ""} ${profile.last_name || ""}`)}
                 </h2>
               </div>
 
@@ -240,7 +242,7 @@ export default function SwipeCard({
                   <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                   {lawyer.rating_average ? lawyer.rating_average.toFixed(1) : "5.0"}
                   <span className="text-[11px] text-slate-500 font-normal">
-                    ({lawyer.total_reviews} reseñas)
+                    ({lawyer.total_reviews} {pluralize(lawyer.total_reviews, "reseña", "reseñas")})
                   </span>
                 </span>
                 <span className="text-slate-300">·</span>
@@ -331,7 +333,10 @@ export default function SwipeCard({
             </p>
           )}
 
-          <div className="grid grid-cols-3 gap-3">
+          <div
+            className="grid grid-cols-3 gap-3"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
             {/* Action 1: Descartar / Pasar */}
             <button
               type="button"

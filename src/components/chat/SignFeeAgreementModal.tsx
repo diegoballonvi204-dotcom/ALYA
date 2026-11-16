@@ -175,7 +175,7 @@ export function SignFeeAgreementModal({
                   {agreement.title}
                 </h2>
                 <p className="text-xs text-slate-500 font-sans">
-                  Fecha de propuesta: {new Date(agreement.created_at).toLocaleDateString("es-PE", { dateStyle: "long" })}
+                  Fecha de propuesta: {new Date(agreement.created_at).toLocaleDateString("es-PE", { dateStyle: "long", timeZone: "America/Lima" })}
                 </p>
               </div>
 

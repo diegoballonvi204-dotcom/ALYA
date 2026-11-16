@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getPublicLawyersAction } from "@/actions/directory.actions";
+import { pluralize } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 import {
@@ -56,61 +58,77 @@ export default async function HomePage() {
     }
   }
 
+  const directoryRes = await getPublicLawyersAction({ limit: 100 });
+  const publicLawyers = directoryRes.lawyers || [];
+
+  const getSpecialtyBadgeLabel = (slug: string, name: string) => {
+    const count = publicLawyers.filter((l) =>
+      l.specialties.some(
+        (s) =>
+          s.slug?.toLowerCase() === slug.toLowerCase() ||
+          s.name?.toLowerCase() === name.toLowerCase()
+      )
+    ).length;
+    return count > 0
+      ? `${count} ${pluralize(count, "Abogado", "Abogados")}`
+      : "Área Habilitada";
+  };
+
   const curatedSpecialties = [
     {
       name: "Derecho Laboral",
       slug: "derecho-laboral",
       description: "Despidos arbitrarios, reclamo de liquidaciones y hostigamiento laboral ante MTPE y Juzgados.",
-      lawyersCount: "64 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("derecho-laboral", "Derecho Laboral"),
       icon: Briefcase,
     },
     {
       name: "Derecho Penal",
       slug: "derecho-penal",
       description: "Defensa penal técnica y urgente en investigaciones preliminares, fiscalía y flagrancia.",
-      lawyersCount: "52 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("derecho-penal", "Derecho Penal"),
       icon: Shield,
     },
     {
       name: "Derecho Civil",
       slug: "derecho-civil",
       description: "Contratos de arrendamiento, indemnizaciones por daños y perjuicios y prescripción adquisitiva.",
-      lawyersCount: "48 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("derecho-civil", "Derecho Civil"),
       icon: Scale,
     },
     {
       name: "Derecho de Familia",
       slug: "derecho-familia",
       description: "Fijación y aumento de alimentos, régimen de visitas, tenencia y divorcios notariales céleres.",
-      lawyersCount: "70 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("derecho-familia", "Derecho de Familia"),
       icon: HeartHandshake,
     },
     {
       name: "Derecho Inmobiliario",
       slug: "derecho-inmobiliario",
       description: "Desalojos express (Ley 30933), saneamiento físico-legal de predios y títulos ante SUNARP.",
-      lawyersCount: "38 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("derecho-inmobiliario", "Derecho Inmobiliario"),
       icon: Home,
     },
     {
       name: "Derecho Corporativo",
       slug: "derecho-corporativo",
       description: "Constitución societaria, acuerdos de accionistas, fusiones, adquisiciones y compliance.",
-      lawyersCount: "42 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("derecho-corporativo", "Derecho Corporativo"),
       icon: Building2,
     },
     {
       name: "Protección al Consumidor",
       slug: "proteccion-consumidor",
       description: "Reclamos ante INDECOPI, cláusulas abusivas, idoneidad de servicio y sanciones administrativas.",
-      lawyersCount: "35 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("proteccion-consumidor", "Protección al Consumidor"),
       icon: FileText,
     },
     {
       name: "Derecho Tributario",
       slug: "derecho-tributario",
       description: "Fiscalizaciones tributarias SUNAT, recursos de reclamación y apelación ante Tribunal Fiscal.",
-      lawyersCount: "29 Abogados",
+      lawyersCount: getSpecialtyBadgeLabel("derecho-tributario", "Derecho Tributario"),
       icon: Receipt,
     },
   ];
@@ -347,7 +365,7 @@ export default async function HomePage() {
       <section id="especialidades" className="py-20 sm:py-28 border-t border-slate-200/80 bg-[#F8FAFC]">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-16">
           {/* Interactive Discovery Showcase Card */}
-          <DiscoveryShowcase />
+          <DiscoveryShowcase lawyers={publicLawyers} />
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-14">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#2563EB] font-mono">
@@ -358,7 +376,7 @@ export default async function HomePage() {
               </h2>
             </div>
             <Link
-              href="/dashboard"
+              href="/abogados"
               className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-[#0F172A] hover:text-[#2563EB] transition-colors"
             >
               <span>Explorar especialistas</span>
@@ -394,7 +412,7 @@ export default async function HomePage() {
 
                   <div className="mt-5 pt-3 border-t border-slate-100">
                     <Link
-                      href={`/dashboard?specialty=${spec.slug}`}
+                      href={`/abogados?specialty=${spec.slug}`}
                       className="inline-flex items-center gap-1.5 text-xs font-bold text-[#0F172A] group-hover:text-[#2563EB] transition-colors"
                     >
                       <span>Consultar esta materia</span>
@@ -617,7 +635,7 @@ export default async function HomePage() {
           <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-4">
             <MagneticButton>
               <Link
-                href="/dashboard"
+                href="/abogados"
                 className="w-full sm:w-auto group inline-flex items-center justify-center gap-2.5 rounded-xl bg-[#101828] px-8 py-4 text-base font-bold text-white shadow-xl shadow-slate-900/25 hover:bg-[#1E293B] transition-all border border-slate-800"
               >
                 <span>Describir mi problema legal</span>
@@ -666,7 +684,7 @@ export default async function HomePage() {
               <ul className="space-y-2 text-xs">
                 <li><Link href="/#como-funciona" className="hover:text-blue-400 transition-colors">¿Cómo funciona?</Link></li>
                 <li><Link href="/#matching" className="hover:text-blue-400 transition-colors">Algoritmo de Matching</Link></li>
-                <li><Link href="/dashboard" className="hover:text-blue-400 transition-colors">Explorar Abogados</Link></li>
+                <li><Link href="/abogados" className="hover:text-blue-400 transition-colors">Explorar Abogados</Link></li>
                 <li><Link href="/login" className="hover:text-blue-400 transition-colors">Iniciar Sesión</Link></li>
               </ul>
             </div>
@@ -675,11 +693,11 @@ export default async function HomePage() {
             <div className="space-y-3">
               <h4 className="text-xs font-bold uppercase tracking-wider text-white font-mono">Especialidades</h4>
               <ul className="space-y-2 text-xs">
-                <li><Link href="/dashboard?specialty=derecho-laboral" className="hover:text-blue-400 transition-colors">Derecho Laboral</Link></li>
-                <li><Link href="/dashboard?specialty=derecho-penal" className="hover:text-blue-400 transition-colors">Derecho Penal</Link></li>
-                <li><Link href="/dashboard?specialty=derecho-civil" className="hover:text-blue-400 transition-colors">Derecho Civil</Link></li>
-                <li><Link href="/dashboard?specialty=derecho-familia" className="hover:text-blue-400 transition-colors">Derecho de Familia</Link></li>
-                <li><Link href="/dashboard?specialty=derecho-inmobiliario" className="hover:text-blue-400 transition-colors">Derecho Inmobiliario</Link></li>
+                <li><Link href="/abogados?specialty=derecho-laboral" className="hover:text-blue-400 transition-colors">Derecho Laboral</Link></li>
+                <li><Link href="/abogados?specialty=derecho-penal" className="hover:text-blue-400 transition-colors">Derecho Penal</Link></li>
+                <li><Link href="/abogados?specialty=derecho-civil" className="hover:text-blue-400 transition-colors">Derecho Civil</Link></li>
+                <li><Link href="/abogados?specialty=derecho-familia" className="hover:text-blue-400 transition-colors">Derecho de Familia</Link></li>
+                <li><Link href="/abogados?specialty=derecho-inmobiliario" className="hover:text-blue-400 transition-colors">Derecho Inmobiliario</Link></li>
               </ul>
             </div>
 
@@ -690,8 +708,8 @@ export default async function HomePage() {
                 <li><Link href="/privacidad" className="hover:text-blue-400 transition-colors">Política de Privacidad</Link></li>
                 <li><Link href="/privacidad/arco" className="hover:text-blue-400 transition-colors">Ejercicio Derechos ARCO</Link></li>
                 <li><Link href="/privacidad#banco-datos" className="hover:text-blue-400 transition-colors">Banco de Datos RNPDP</Link></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Términos y Condiciones</a></li>
-                <li><a href="#" className="hover:text-blue-400 transition-colors">Libro de Reclamaciones</a></li>
+                <li><Link href="/terminos" className="hover:text-blue-400 transition-colors">Términos y Condiciones</Link></li>
+                <li><Link href="/reclamaciones" className="hover:text-blue-400 transition-colors">Libro de Reclamaciones</Link></li>
               </ul>
             </div>
           </div>
@@ -701,7 +719,7 @@ export default async function HomePage() {
             <div className="flex items-center gap-4 text-slate-400">
               <span>Lima, Perú</span>
               <span>•</span>
-              <span>Registro CAL N.° 48921 Validado</span>
+              <span>Verificación Colegiada CAL / CAA</span>
             </div>
           </div>
         </div>

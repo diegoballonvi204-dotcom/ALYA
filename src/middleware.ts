@@ -65,7 +65,8 @@ export async function middleware(request: NextRequest) {
 
   // Si está autenticado, verificar control de rol únicamente en secciones con privilegios de rol
   if (user && isProtected) {
-    const isRoleSensitive = path.startsWith("/admin") || path.startsWith("/lawyer");
+    const isDashboardPath = path === "/dashboard" || path.startsWith("/dashboard/");
+    const isRoleSensitive = path.startsWith("/admin") || path.startsWith("/lawyer") || isDashboardPath;
     if (isRoleSensitive) {
       const { data: profile } = await supabase
         .from("profiles")
@@ -79,6 +80,15 @@ export async function middleware(request: NextRequest) {
 
       if (path.startsWith("/lawyer") && profile?.role !== "lawyer" && !path.startsWith("/onboarding")) {
         return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+
+      if (isDashboardPath) {
+        if (profile?.role === "lawyer") {
+          return NextResponse.redirect(new URL("/lawyer/dashboard", request.url));
+        }
+        if (profile?.role === "admin" || profile?.role === "verifier") {
+          return NextResponse.redirect(new URL("/admin", request.url));
+        }
       }
     }
   }

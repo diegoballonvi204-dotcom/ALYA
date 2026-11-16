@@ -70,6 +70,7 @@ export default function LawyerBillingHistory({ invoices }: LawyerBillingHistoryP
                 day: "2-digit",
                 month: "short",
                 year: "numeric",
+                timeZone: "America/Lima",
               });
 
               return (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   Send,
   Paperclip,
@@ -19,12 +20,15 @@ import {
   Scale,
   Lock,
   Clock,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   sendMessageAction,
   markMessagesAsReadAction,
 } from "@/actions/chat.actions";
+import { lawyerInteractMatchAction } from "@/actions/cases.actions";
 import { getCaseFeeAgreementsAction } from "@/actions/agreements.actions";
 import { CaseDocumentsDrawer } from "./CaseDocumentsDrawer";
 import { ScheduleConsultationModal } from "./ScheduleConsultationModal";
@@ -37,6 +41,51 @@ import { ConsultationPaymentModal } from "./ConsultationPaymentModal";
 import { JitsiVideoModal } from "./JitsiVideoModal";
 import { CreateFeeAgreementModal } from "./CreateFeeAgreementModal";
 import { FeeAgreementCard } from "./FeeAgreementCard";
+import { formatLimaTime } from "@/lib/utils";
+
+function renderFormattedMessage(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    return (
+      <span key={lineIdx} className="block">
+        {parts.map((part, idx) => {
+          if (part.startsWith("**") && part.endsWith("**") && part.length > 4) {
+            return (
+              <strong key={idx} className="font-bold">
+                {part.slice(2, -2)}
+              </strong>
+            );
+          }
+          if (part.startsWith("`") && part.endsWith("`") && part.length > 2) {
+            return (
+              <code key={idx} className="px-1 py-0.5 rounded bg-black/10 font-mono text-[11px]">
+                {part.slice(1, -1)}
+              </code>
+            );
+          }
+          return <span key={idx}>{part}</span>;
+        })}
+      </span>
+    );
+  });
+}
+
+function isSystemEventMessage(messageText: string): boolean {
+  const t = messageText.trim();
+  return (
+    t.startsWith("🎉") ||
+    t.startsWith("📅") ||
+    t.startsWith("💳") ||
+    t.startsWith("✅ **Convenio") ||
+    t.startsWith("⚖️ **") ||
+    t.includes("Actualización de Cita Legal") ||
+    t.includes("Solicitud de Cita Legal") ||
+    t.includes("¡Conexión bilateral establecida!") ||
+    t.includes("Pago de Honorarios en Custodia") ||
+    t.includes("Pago con Tarjeta Procesado en Custodia")
+  );
+}
 
 interface MessageItem {
   id: string;
@@ -56,6 +105,9 @@ interface ChatRoomProps {
     caseId: string;
     isActive: boolean;
     createdAt: string;
+    matchStatus?: string;
+    userInterest?: boolean;
+    lawyerInterest?: boolean;
   };
   caseData: {
     id: string;
@@ -96,10 +148,19 @@ export function ChatRoom({
   consultation,
   initialMessages,
 }: ChatRoomProps) {
+  const router = useRouter();
   const [messages, setMessages] = useState<MessageItem[]>(initialMessages);
   const [inputMessage, setInputMessage] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [matchStatus, setMatchStatus] = useState<string>(
+    conversation.matchStatus || "matched"
+  );
+  const [lawyerInterested, setLawyerInterested] = useState<boolean>(
+    conversation.lawyerInterest ?? true
+  );
+  const [isAcceptingCase, setIsAcceptingCase] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
   const [isDocsOpen, setIsDocsOpen] = useState(false);
   const [isScheduleOpen, setIsScheduleOpen] = useState(false);
   const [isReviewOpen, setIsReviewOpen] = useState(false);
@@ -114,21 +175,53 @@ export function ChatRoom({
     consultation?.hasReviewed || false
   );
 
+  const isBilateralConfirmed =
+    matchStatus === "matched" ||
+    ((conversation.userInterest ?? true) && lawyerInterested);
+
   // Determinar si el justiciable debe abonar honorarios antes de iniciar la interacción
   const agreedPrice = Number(consultationState?.agreedPrice ?? counterpart.consultationPrice ?? 0);
   const isPaidOrFree =
     agreedPrice === 0 ||
     consultationState?.paymentStatus === "held_escrow" ||
     consultationState?.paymentStatus === "released";
-  const requiresClientPayment = isClient && !isPaidOrFree;
+  const requiresClientPayment = isClient && isBilateralConfirmed && !isPaidOrFree;
   const [hasDismissedPaymentModal, setHasDismissedPaymentModal] = useState(false);
 
-  // Apertura automática del modal de pago si es la primera interacción y requiere pago
+  // Apertura automática del modal de pago si el match ya está confirmado y requiere pago
   useEffect(() => {
     if (requiresClientPayment && consultationState?.id && !hasDismissedPaymentModal) {
       setIsPaymentOpen(true);
     }
   }, [requiresClientPayment, consultationState?.id, hasDismissedPaymentModal]);
+
+  const handleAcceptCaseFromChat = async () => {
+    if (isAcceptingCase) return;
+    setIsAcceptingCase(true);
+    setAcceptError(null);
+    try {
+      const res = await lawyerInteractMatchAction({
+        matchId: conversation.matchId,
+        caseId: caseData.id,
+        interested: true,
+      });
+      if (res?.error === "QUOTA_EXCEEDED") {
+        setAcceptError(
+          "Has alcanzado el límite de contactos de tu plan actual. Mejora tu suscripción en Mi Plan para aceptar más casos."
+        );
+      } else if (res?.error) {
+        setAcceptError(res.error);
+      } else if (res?.success) {
+        setLawyerInterested(true);
+        setMatchStatus("matched");
+        router.refresh();
+      }
+    } catch {
+      setAcceptError("No se pudo confirmar la atención del caso. Intenta nuevamente.");
+    } finally {
+      setIsAcceptingCase(false);
+    }
+  };
 
   const loadAgreements = async () => {
     const res = await getCaseFeeAgreementsAction(caseData.id);
@@ -429,10 +522,61 @@ export function ChatRoom({
       <div className="py-2 px-4 bg-blue-50/40 border-b border-blue-100 flex items-center justify-center gap-2 text-[11px] text-slate-600 font-medium">
         <ShieldCheck className="w-3.5 h-3.5 shrink-0 text-[#2563EB]" />
         <span>
-          Canal protegido de extremo a extremo. Los mensajes y expedientes están
-          sujetos al secreto profesional y la Ley N.° 29733.
+          Canal privado protegido por secreto profesional y la Ley N.° 29733 de Protección de Datos Personales.
         </span>
       </div>
+
+      {/* 4.1 Banner de Solicitud Pendiente de Aceptación */}
+      {!isClient && !lawyerInterested && (
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-50 via-indigo-50/80 to-white border-b border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                El cliente seleccionó tu perfil y espera tu confirmación
+              </h4>
+              <p className="text-[11px] sm:text-xs text-slate-600 mt-0.5">
+                Revisa los detalles de la consulta y acepta el caso para habilitar formalmente la atención y notificar al cliente.
+              </p>
+              {acceptError && (
+                <p className="text-xs font-semibold text-rose-700 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{acceptError}</span>
+                </p>
+              )}
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={isAcceptingCase}
+            onClick={handleAcceptCaseFromChat}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] px-5 py-2.5 text-xs font-bold text-white shadow-md transition-all cursor-pointer disabled:opacity-60 shrink-0"
+          >
+            {isAcceptingCase ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                <span>Confirmando...</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Aceptar Caso y Confirmar Atención</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {isClient && !lawyerInterested && (
+        <div className="px-6 py-3 bg-amber-50/80 border-b border-amber-200 flex items-center gap-3 text-xs text-amber-900">
+          <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            <strong>Solicitud enviada:</strong> hemos notificado al abogado sobre tu interés. Recibirás una notificación en cuanto confirme su disponibilidad para atender el caso.
+          </span>
+        </div>
+      )}
 
       {/* 3. Área de Mensajes */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -453,12 +597,40 @@ export function ChatRoom({
         ) : (
           messages.map((msg) => {
             const isMe = msg.sender_id === currentUser.id;
-            const time = new Date(msg.created_at).toLocaleTimeString("es-PE", {
-              hour: "2-digit",
-              minute: "2-digit",
-            });
+            const time = formatLimaTime(msg.created_at);
+            const isSystemMsg = isSystemEventMessage(msg.message);
 
-            const isAppointmentCard = msg.message.startsWith("📅 **");
+            if (isSystemMsg) {
+              return (
+                <div key={msg.id} className="flex justify-center my-2">
+                  <div className="max-w-lg w-full rounded-2xl border border-blue-200/80 bg-blue-50/75 px-4 py-3 text-xs text-[#0F172A] shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between gap-2 pb-1 border-b border-blue-200/60">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#2563EB] font-mono">
+                        Notificación del Sistema ALYA
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-mono">{time}</span>
+                    </div>
+                    <div className="leading-relaxed text-slate-800 space-y-0.5">
+                      {renderFormattedMessage(msg.message)}
+                    </div>
+                    {msg.attachment_url && (
+                      <div className="pt-2 border-t border-blue-200/50">
+                        <a
+                          href={msg.attachment_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-white text-slate-800 border border-blue-200 hover:bg-blue-50 transition-colors"
+                        >
+                          <File className="w-3.5 h-3.5" />
+                          <span>Abrir Comprobante / Documento</span>
+                          <Download className="w-3.5 h-3.5 ml-1 opacity-70" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            }
 
             return (
               <div
@@ -467,16 +639,14 @@ export function ChatRoom({
               >
                 <div
                   className={`max-w-md lg:max-w-lg rounded-2xl p-4 text-xs transition-all ${
-                    isAppointmentCard
-                      ? "bg-blue-50/80 border border-blue-200 text-[#0F172A] shadow-xs"
-                      : isMe
+                    isMe
                       ? "bg-[#0F172A] text-white rounded-tr-xs shadow-xs"
                       : "bg-white text-[#0F172A] border border-slate-200 rounded-tl-xs shadow-xs"
                   }`}
                 >
                   {/* Contenido del Mensaje */}
-                  <div className="whitespace-pre-wrap leading-relaxed">
-                    {msg.message}
+                  <div className="leading-relaxed space-y-0.5">
+                    {renderFormattedMessage(msg.message)}
                   </div>
 
                   {/* Document Attachment Button if present */}
@@ -524,8 +694,31 @@ export function ChatRoom({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 4. Barra Inferior de Entrada o Bloqueo por Abono Requerido */}
-      {requiresClientPayment ? (
+      {/* 4. Barra Inferior de Entrada o Bloqueo por Abono Requerido (H14: Bloquea envío en ambos roles sin custodia) */}
+      {!lawyerInterested ? (
+        <footer className="border-t border-slate-200 bg-slate-50 p-4 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto text-xs text-slate-600">
+            <div className="flex items-center gap-2.5">
+              <Clock className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>
+                {isClient
+                  ? "Esperando que el abogado acepte tu consulta para habilitar el intercambio de mensajes y el abono en custodia."
+                  : "Acepta el caso arriba para confirmar el match bilateral y habilitar la mensajería con el cliente."}
+              </span>
+            </div>
+            {!isClient && (
+              <button
+                type="button"
+                disabled={isAcceptingCase}
+                onClick={handleAcceptCaseFromChat}
+                className="px-4 py-2 rounded-xl bg-[#0F172A] hover:bg-[#1E293B] text-white font-bold text-xs transition-all cursor-pointer shrink-0 disabled:opacity-60"
+              >
+                {isAcceptingCase ? "Confirmando..." : "Aceptar Caso"}
+              </button>
+            )}
+          </div>
+        </footer>
+      ) : requiresClientPayment ? (
         <footer className="border-t border-amber-200 bg-linear-to-r from-amber-50 to-orange-50/50 p-4 shadow-xs">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 max-w-4xl mx-auto">
             <div className="flex items-center gap-3">
@@ -551,17 +744,24 @@ export function ChatRoom({
             </button>
           </div>
         </footer>
+      ) : !isClient && !isPaidOrFree ? (
+        <footer className="border-t border-amber-200 bg-amber-50 p-4 shadow-xs">
+          <div className="flex items-center justify-center gap-3 max-w-4xl mx-auto text-amber-900">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center shrink-0">
+              <Lock className="w-4 h-4 text-amber-700" />
+            </div>
+            <div className="text-xs">
+              <p className="font-bold">
+                Mensajería bloqueada en espera de custodia Escrow (S/ {agreedPrice.toFixed(2)})
+              </p>
+              <p className="text-[11px] text-amber-800">
+                Por seguridad financiera y cumplimiento, podrás enviar mensajes y adjuntos en cuanto el cliente deposite el abono en custodia ALYA.
+              </p>
+            </div>
+          </div>
+        </footer>
       ) : (
         <>
-          {!isClient && !isPaidOrFree && (
-            <div className="py-2 px-4 bg-amber-50 border-t border-amber-200 flex items-center justify-center gap-2 text-xs text-amber-800 font-medium">
-              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-              <span>
-                Esperando que el cliente complete el abono de honorarios (S/ {agreedPrice.toFixed(2)}) en custodia ALYA para iniciar la atención.
-              </span>
-            </div>
-          )}
-
           <footer className="p-4 border-t border-slate-200 bg-white">
             <form
               onSubmit={handleSendMessage}

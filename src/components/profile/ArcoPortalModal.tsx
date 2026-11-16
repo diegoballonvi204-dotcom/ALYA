@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useState, useTransition, useEffect } from "react";
 import {
   X,
   ShieldCheck,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { submitArcoRequestAction } from "@/actions/arco.actions";
+import { formatLimaDate } from "@/lib/utils";
 
 interface ArcoPortalModalProps {
   isOpen: boolean;
@@ -33,11 +34,22 @@ export function ArcoPortalModal({
   >("access");
   const [requesterName, setRequesterName] = useState(userDefaultName);
   const [requesterDni, setRequesterDni] = useState("");
-  const [requesterEmail, setRequesterEmail] = useState(userDefaultEmail);
+  const [requesterEmail, setRequesterEmail] = useState(
+    userDefaultEmail.replace(/@legalmatch\.pe$/i, "@alya.pe")
+  );
   const [justification, setJustification] = useState("");
   const [submittedRequest, setSubmittedRequest] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -45,8 +57,8 @@ export function ArcoPortalModal({
     e.preventDefault();
     setErrorMsg(null);
 
-    if (requesterDni.trim().length < 8) {
-      setErrorMsg("Ingresa un número de DNI o documento de identidad válido.");
+    if (!/^\d{8}$/.test(requesterDni.trim())) {
+      setErrorMsg("Ingresa un número de DNI peruano válido de exactamente 8 dígitos numéricos.");
       return;
     }
 
@@ -174,7 +186,7 @@ export function ArcoPortalModal({
                 <div className="flex items-center justify-between">
                   <span className="text-slate-500">Plazo Máximo de Respuesta (Ley 29733):</span>
                   <span className="font-mono font-bold text-blue-700">
-                    {new Date(submittedRequest.deadline_at).toLocaleDateString("es-PE", {
+                    {formatLimaDate(submittedRequest.deadline_at, {
                       day: "2-digit",
                       month: "long",
                       year: "numeric",
@@ -208,6 +220,7 @@ export function ArcoPortalModal({
                     <button
                       key={d.id}
                       type="button"
+                      aria-pressed={requestType === d.id}
                       onClick={() => setRequestType(d.id as any)}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                         requestType === d.id
@@ -225,11 +238,13 @@ export function ArcoPortalModal({
               {/* Datos Personales */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
+                  <label htmlFor="arco-modal-name" className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
                     Nombres y Apellidos *
                   </label>
                   <input
+                    id="arco-modal-name"
                     type="text"
+                    autoComplete="name"
                     value={requesterName}
                     onChange={(e) => setRequesterName(e.target.value)}
                     required
@@ -238,14 +253,17 @@ export function ArcoPortalModal({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
-                    DNI o Carné de Extranjería *
+                  <label htmlFor="arco-modal-dni" className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
+                    DNI (8 dígitos numéricos) *
                   </label>
                   <input
+                    id="arco-modal-dni"
                     type="text"
-                    maxLength={15}
+                    inputMode="numeric"
+                    pattern="\d{8}"
+                    maxLength={8}
                     value={requesterDni}
-                    onChange={(e) => setRequesterDni(e.target.value)}
+                    onChange={(e) => setRequesterDni(e.target.value.replace(/\D/g, "").slice(0, 8))}
                     placeholder="8 dígitos"
                     required
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/20 text-xs font-mono font-bold text-[#0F172A] outline-none"
@@ -254,11 +272,13 @@ export function ArcoPortalModal({
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
+                <label htmlFor="arco-modal-email" className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
                   Correo Electrónico de Contacto *
                 </label>
                 <input
+                  id="arco-modal-email"
                   type="email"
+                  autoComplete="email"
                   value={requesterEmail}
                   onChange={(e) => setRequesterEmail(e.target.value)}
                   required
@@ -268,10 +288,11 @@ export function ArcoPortalModal({
 
               {/* Justificación */}
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
+                <label htmlFor="arco-modal-justification" className="block text-xs font-bold uppercase tracking-wider text-slate-600 font-mono mb-1.5">
                   Fundamento o Petitorio Concreto *
                 </label>
                 <textarea
+                  id="arco-modal-justification"
                   rows={3}
                   value={justification}
                   onChange={(e) => setJustification(e.target.value)}

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -8,6 +9,12 @@ import {
   Scale,
   ArrowRight,
 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Política de Privacidad y Banco de Datos | ALYA Perú",
+  description:
+    "Política de Protección de Datos Personales conforme a la Ley N.° 29733 y D.S. N.° 003-2013-JUS, inscripción ante el RNPDP y secreto profesional.",
+};
 
 export default function PrivacyPolicyPage() {
   return (
@@ -56,7 +63,10 @@ export default function PrivacyPolicyPage() {
       {/* Structured Sections */}
       <div className="space-y-6 text-slate-700 text-xs sm:text-sm leading-relaxed">
         {/* 1. Bancos de Datos Inscritos */}
-        <section className="p-6 sm:p-8 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-4">
+        <section
+          id="banco-datos"
+          className="scroll-mt-24 p-6 sm:p-8 rounded-2xl bg-white border border-slate-200/90 shadow-xs space-y-4"
+        >
           <div className="flex items-center gap-2.5 text-base font-bold text-[#0F172A] font-serif">
             <Database className="w-5 h-5 text-[#2563EB]" />
             <h2>1. Bancos de Datos Personales Registrados</h2>

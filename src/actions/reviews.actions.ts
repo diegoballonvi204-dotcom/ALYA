@@ -25,7 +25,7 @@ export async function submitReviewAction(formData: CreateReviewValues) {
   // 1. Validar que la consulta pertenezca al usuario cliente
   const { data: consultation, error: cErr } = await supabase
     .from("consultations")
-    .select("id, client_id, lawyer_id, case_id, status, scheduled_at")
+    .select("id, client_id, lawyer_id, case_id, status, scheduled_at, payment_status, agreed_price")
     .eq("id", validated.data.consultationId)
     .single();
 
@@ -37,10 +37,15 @@ export async function submitReviewAction(formData: CreateReviewValues) {
     return { error: "Solo el cliente que reservó la consulta puede calificarla." };
   }
 
-  // Si la consulta estaba confirmada y la fecha ya pasó, auto-marcarla como completed para permitir calificar
+  // Si la consulta estaba confirmada, pagada (o gratuita) y la fecha ya pasó, auto-marcarla como completed
   if (consultation.status !== "completed") {
     const isPast = new Date(consultation.scheduled_at).getTime() <= Date.now();
-    if (consultation.status === "confirmed" && isPast) {
+    const isPaidOrFree =
+      Number(consultation.agreed_price ?? 0) === 0 ||
+      consultation.payment_status === "held_escrow" ||
+      consultation.payment_status === "released";
+
+    if (consultation.status === "confirmed" && isPast && isPaidOrFree) {
       await supabase
         .from("consultations")
         .update({ status: "completed" })
@@ -48,7 +53,7 @@ export async function submitReviewAction(formData: CreateReviewValues) {
     } else {
       return {
         error:
-          "La consulta aún no ha sido marcada como concluida. Podrás calificarla tan pronto finalice.",
+          "La consulta aún no ha sido marcada como concluida o no registra pago válido. Podrás calificarla tan pronto finalice.",
       };
     }
   }

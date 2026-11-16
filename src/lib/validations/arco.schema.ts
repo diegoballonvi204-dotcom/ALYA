@@ -22,6 +22,10 @@ export const SubmitArcoRequestSchema = z.object({
   supportingDocumentUrl: z
     .string()
     .url("URL de documento adjunto inválida")
+    .refine(
+      (val) => !val || /^https:\/\//i.test(val),
+      "La URL de documento de respaldo debe usar HTTPS"
+    )
     .optional()
     .nullable()
     .or(z.literal("")),

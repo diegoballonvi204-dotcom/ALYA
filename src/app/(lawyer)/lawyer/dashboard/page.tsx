@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -9,6 +10,14 @@ import SubscriptionExpiryBanner from "@/components/lawyer/SubscriptionExpiryBann
 import UrgentFlagrancyBanner from "@/components/lawyer/UrgentFlagrancyBanner";
 import LawyerActivationCodeForm from "@/components/lawyer/LawyerActivationCodeForm";
 import { getMyLawyerSubscriptionAction } from "@/actions/subscription.actions";
+import type { UrgentFlagrancyCase } from "@/actions/urgency-alerts.actions";
+import { cleanLawyerName, formatBarLabel, pluralize } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Panel de Abogado | ALYA Perú",
+  description:
+    "Evalúa consultas jurídicas compatibles, gestiona tu guardia de flagrancia y controla tu cupo mensual en ALYA Perú.",
+};
 
 export default async function LawyerDashboardPage({
   searchParams,
@@ -83,6 +92,7 @@ export default async function LawyerDashboardPage({
         user_interest,
         lawyer_interest,
         status,
+        created_at,
         conversations (id),
         cases!inner (
           id,
@@ -91,6 +101,8 @@ export default async function LawyerDashboardPage({
           city,
           modality,
           urgency,
+          police_station,
+          emergency_contact_phone,
           is_confidential,
           created_at,
           status,
@@ -99,8 +111,10 @@ export default async function LawyerDashboardPage({
       `)
       .eq("lawyer_id", lawyer.id)
       .neq("status", "discarded")
+      .order("user_interest", { ascending: false })
+      .order("created_at", { ascending: false })
       .order("score", { ascending: false })
-      .limit(12);
+      .limit(50);
 
     if (matches && matches.length > 0) {
       rawCases = matches.map((m: any) => ({
@@ -126,6 +140,9 @@ export default async function LawyerDashboardPage({
 
   const displayCases = rawCases
     .filter((item) => {
+      if (item.matchInfo?.user_interest) {
+        return true;
+      }
       const isUrgent = item.caseItem.urgency === "immediate" || item.caseItem.urgency === "high";
       const isExclusiveTime = isWithin15Min(item.caseItem.created_at);
 
@@ -144,6 +161,34 @@ export default async function LawyerDashboardPage({
       };
     });
 
+  // Unica fuente de datos para el banner de flagrancia: coincide exactamente con el filtro "Flagrancia" del mazo
+  const nowMs = Date.now();
+  const urgentFlagrancyCases: UrgentFlagrancyCase[] = displayCases
+    .filter(
+      (item) =>
+        item.caseItem.urgency === "immediate" &&
+        !item.matchInfo?.lawyer_interest &&
+        item.matchInfo?.status !== "matched"
+    )
+    .map((item) => {
+      const c = item.caseItem;
+      const createdMs = new Date(c.created_at).getTime();
+      const hoursElapsed = Math.max(0, Math.floor((nowMs - createdMs) / (1000 * 60 * 60)));
+      return {
+        id: c.id,
+        title: c.title,
+        description: c.description,
+        city: c.city,
+        urgency: "immediate",
+        policeStation: c.police_station || "Comisaría / Fiscalía de Turno",
+        emergencyPhone: c.emergency_contact_phone,
+        createdAt: c.created_at,
+        hoursElapsed,
+        hoursRemainingInFlagrancy: Math.max(0, 48 - hoursElapsed),
+        specialtyName: c.specialties?.name || "Derecho Penal / Flagrancia",
+      };
+    });
+
   return (
     <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
       {/* Alerta Preventiva de Vencimiento de Membresía / Gracia */}
@@ -155,7 +200,7 @@ export default async function LawyerDashboardPage({
       />
 
       {/* Alerta de Guardia de Flagrancia & Casos Inmediatos (Ventana 48h) - PRIORIDAD 1 */}
-      <UrgentFlagrancyBanner />
+      <UrgentFlagrancyBanner initialUrgentCases={urgentFlagrancyCases} />
 
       {/* Notificaciones del Sistema / Onboarding */}
       {params.onboarding === "complete" && (
@@ -272,10 +317,10 @@ export default async function LawyerDashboardPage({
                     <LawyerTierBadge tier={currentPlan.tier} size="sm" />
                   </div>
                   <h2 className="text-lg font-bold tracking-tight text-[#0F172A] font-serif leading-snug">
-                    {lawyer.profiles?.first_name} {lawyer.profiles?.last_name}
+                    {cleanLawyerName(`${lawyer.profiles?.first_name || ""} ${lawyer.profiles?.last_name || ""}`)}
                   </h2>
                   <p className="text-[11px] text-slate-500 font-mono">
-                    {lawyer.bar_association} • CAL {lawyer.bar_number}
+                    {formatBarLabel(lawyer.bar_association, lawyer.bar_number)}
                   </p>
                 </div>
               </div>
@@ -289,7 +334,7 @@ export default async function LawyerDashboardPage({
                   {lawyer.rating_average.toFixed(1)}
                 </div>
                 <span className="text-[10px] text-slate-500 block mt-0.5">
-                  {lawyer.total_reviews} reseñas
+                  {lawyer.total_reviews} {pluralize(lawyer.total_reviews, "reseña", "reseñas")}
                 </span>
               </div>
 
@@ -340,7 +385,7 @@ export default async function LawyerDashboardPage({
               </div>
               <div className="flex items-center justify-between pt-1">
                 <span className="text-[10px] text-blue-800/80 font-mono">
-                  Plan {currentPlan.name}
+                  {currentPlan.name.startsWith("Plan") ? currentPlan.name : `Plan ${currentPlan.name}`}
                 </span>
                 <Link
                   href="/lawyer/subscription"
@@ -383,11 +428,10 @@ export default async function LawyerDashboardPage({
                 lawyerSpecialties.map((ls: any) => (
                   <span
                     key={ls.id}
-                    className={`rounded-xl border px-3 py-1.5 text-xs font-medium ${
-                      ls.is_primary
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-medium ${ls.is_primary
                         ? "border-blue-200 bg-blue-50 text-blue-800 font-semibold"
                         : "border-slate-200 bg-slate-50 text-slate-700"
-                    }`}
+                      }`}
                   >
                     {ls.specialties?.name} ({ls.experience_years}a)
                     {ls.is_primary && " ⭐"}

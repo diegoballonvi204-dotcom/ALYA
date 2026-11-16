@@ -46,19 +46,61 @@ export function AICaseAssistant({
     setApplied(false);
 
     try {
-      const res = await classifyCaseWithAIAction({
-        title: title || "Consulta Legal",
-        description,
-        city,
-      });
+      let classification: AIClassificationResult | undefined;
 
-      if (res.error || !res.result) {
-        setErrorMsg(res.error || "No se pudo clasificar el caso en este momento.");
-      } else {
-        setResult(res.result);
+      try {
+        const response = await fetch("/api/orientar-caso", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            titulo: title?.trim() || "Consulta Legal",
+            detalles: description.trim(),
+            city: city || "Lima",
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          classification = data?.result || (data?.specialtyId ? data : undefined);
+        } else {
+          const errData = await response.json().catch(() => null);
+          if (response.status === 400 && errData?.error) {
+            setErrorMsg(errData.error);
+            return;
+          }
+        }
+      } catch (fetchErr) {
+        console.warn("Reintentando clasificación con Server Action:", fetchErr);
       }
-    } catch (err: any) {
-      setErrorMsg("Error de conexión al orientar el caso.");
+
+      if (!classification) {
+        const fallbackRes = await classifyCaseWithAIAction({
+          title: title?.trim() || "Consulta Legal",
+          description: description.trim(),
+          city: city || "Lima",
+        });
+
+        if (fallbackRes.error || !fallbackRes.result) {
+          throw new Error(fallbackRes.error || "Error en el servidor de IA");
+        }
+        classification = fallbackRes.result;
+      }
+
+      setResult(classification);
+
+      if (classification.specialtyId) {
+        onApplySuggestion({
+          specialtyId: classification.specialtyId,
+          subspecialtyId: classification.subspecialtyId,
+          urgency: classification.urgency,
+        });
+        setApplied(true);
+      }
+    } catch (err: unknown) {
+      console.error("Falla de conexión al orientar caso:", err);
+      setErrorMsg(
+        "Error de conexión al orientar el caso. Por favor, seleccione la materia manualmente o reintente."
+      );
     } finally {
       setAnalyzing(false);
     }
@@ -138,9 +180,19 @@ export function AICaseAssistant({
       </div>
 
       {errorMsg && (
-        <p className="text-xs text-[#202938] bg-white border border-[#E6EAF0] p-3 rounded-xl font-medium">
-          {errorMsg}
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white border border-amber-200 p-3 rounded-xl">
+          <p className="text-xs text-[#202938] font-medium">
+            {errorMsg}
+          </p>
+          <button
+            type="button"
+            disabled={analyzing}
+            onClick={handleAnalyze}
+            className="text-xs font-bold text-[#3157D5] hover:underline shrink-0 self-end sm:self-auto cursor-pointer"
+          >
+            Reintentar
+          </button>
+        </div>
       )}
 
       {/* Suggested Classification Card */}

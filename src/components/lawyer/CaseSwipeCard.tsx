@@ -12,6 +12,7 @@ import {
   Shield,
   Video,
   Building,
+  Loader2,
 } from "lucide-react";
 
 export interface LawyerCaseItem {
@@ -42,6 +43,7 @@ interface CaseSwipeCardProps {
   onSwipe: (direction: "left" | "right") => void;
   onOpenAiBrief?: () => void;
   isRadarVip?: boolean;
+  loadingBrief?: boolean;
 }
 
 export default function CaseSwipeCard({
@@ -51,6 +53,7 @@ export default function CaseSwipeCard({
   onSwipe,
   onOpenAiBrief,
   isRadarVip = false,
+  loadingBrief = false,
 }: CaseSwipeCardProps) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-250, 250], [-10, 10]);
@@ -217,11 +220,25 @@ export default function CaseSwipeCard({
             <div className="mt-2 text-center">
               <button
                 type="button"
-                onClick={onOpenAiBrief}
-                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#3157D5] hover:underline cursor-pointer py-0.5"
+                disabled={loadingBrief}
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onOpenAiBrief();
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-[#3157D5] hover:underline cursor-pointer py-1 disabled:opacity-60"
               >
-                <Sparkles className="w-3.5 h-3.5 text-[#3157D5]" />
-                <span>Ver Informe de Viabilidad Dogmática IA</span>
+                {loadingBrief ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#3157D5]" />
+                    <span>Generando informe IA...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 text-[#3157D5]" />
+                    <span>Ver Informe de Viabilidad Dogmática IA</span>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -231,6 +248,7 @@ export default function CaseSwipeCard({
         <div className="mt-3.5 pt-3 border-t border-[#E6EAF0] grid grid-cols-2 gap-3">
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onSwipe("left")}
             aria-label="Descartar caso"
             className="flex items-center justify-center gap-1.5 rounded-2xl border border-[#E6EAF0] bg-white py-2.5 px-3 text-xs font-semibold text-[#667085] hover:bg-slate-100 hover:text-[#101828] active:scale-95 transition-all cursor-pointer shadow-xs"
@@ -241,6 +259,7 @@ export default function CaseSwipeCard({
 
           <button
             type="button"
+            onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onSwipe("right")}
             aria-label="Postular interés por este caso"
             className="flex items-center justify-center gap-1.5 rounded-2xl bg-[#101828] hover:bg-[#1E293B] py-2.5 px-3 text-xs font-bold text-white shadow-md active:scale-95 transition-all cursor-pointer"

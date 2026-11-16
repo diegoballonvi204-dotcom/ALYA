@@ -218,7 +218,7 @@ export function LawyerReviewsList({
           filteredReviews.map((r) => {
             const dateFormatted = new Date(r.createdAt).toLocaleDateString(
               "es-PE",
-              { year: "numeric", month: "long", day: "numeric" }
+              { year: "numeric", month: "long", day: "numeric", timeZone: "America/Lima" }
             );
 
             return (

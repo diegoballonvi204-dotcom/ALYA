@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sparkles,
   X,
@@ -33,6 +33,15 @@ export default function LawyerAIBriefModal({
 }: LawyerAIBriefModalProps) {
   const [copied, setCopied] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -133,13 +142,17 @@ ${brief.applicableNorms.join(" | ")}
             </div>
           </div>
         ) : (
-          /* Estado Desbloqueado: Briefing Legal IA */
+          /* Estado Desbloqueado: Briefing Legal IA (Básico o Pro/Élite) */
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between gap-4 mb-2">
                 <div className="inline-flex items-center gap-2 rounded-full bg-linear-to-r from-blue-50 to-indigo-50 border border-blue-200 px-3 py-1 text-xs font-bold text-blue-700">
                   <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Resumen Legal Asistido por IA</span>
+                  <span>
+                    {brief.isBasicPlan
+                      ? "Asistente Legal IA (Nivel Básico)"
+                      : "Resumen Legal Asistido por IA"}
+                  </span>
                 </div>
 
                 <button
@@ -247,6 +260,27 @@ ${brief.applicableNorms.join(" | ")}
                 ))}
               </div>
             </div>
+
+            {brief.isBasicPlan && (
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-bold text-indigo-950">
+                    Estás viendo el Asistente IA Básico incluido en tu plan gratuito
+                  </p>
+                  <p className="text-[11px] text-indigo-800">
+                    Actualiza a ALYA Pro para desbloquear la estrategia procesal completa y todas las alertas de caducidad.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 px-4 py-2 text-xs font-bold text-white shrink-0 cursor-pointer"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>Mejorar a Pro</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

@@ -34,7 +34,7 @@ export default async function ChatConversationPage({
   ]);
 
   if (detailRes.error || !detailRes.conversation) {
-    redirect("/chat");
+    notFound();
   }
 
   return (

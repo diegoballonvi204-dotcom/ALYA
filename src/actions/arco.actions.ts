@@ -71,6 +71,23 @@ export async function resolveArcoRequestAction(formData: ResolveArcoRequestValue
   }
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "No autenticado" };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role !== "admin" && profile?.role !== "verifier") {
+    return { error: "Acceso denegado: permisos insuficientes." };
+  }
 
   const { data, error } = await supabase.rpc("resolve_arco_request", {
     p_request_id: validated.data.requestId,
@@ -109,6 +126,23 @@ export async function getUserArcoRequestsAction() {
 
 export async function getAdminArcoRequestsAction() {
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { requests: [], error: "No autenticado" };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role !== "admin" && profile?.role !== "verifier") {
+    return { requests: [], error: "Acceso denegado: permisos insuficientes." };
+  }
 
   const { data: requests, error } = await supabase
     .from("arco_requests")

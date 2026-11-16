@@ -21,6 +21,21 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
     setIsLoading(true);
 
     const formData = new FormData(e.currentTarget);
+    const pwd = String(formData.get("password") || "");
+    const confirmPwd = String(formData.get("confirmPassword") || "");
+
+    if (pwd.length < 8) {
+      setErrorMessage("La contraseña debe tener al menos 8 caracteres.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (pwd !== confirmPwd) {
+      setErrorMessage("Las contraseñas no coinciden.");
+      setIsLoading(false);
+      return;
+    }
+
     formData.set("role", role);
 
     try {
@@ -46,15 +61,19 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
       )}
 
       {/* Selector de Rol */}
-      <div>
-        <label className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide">
+      <div role="group" aria-labelledby="role-group-label">
+        <span
+          id="role-group-label"
+          className="block text-xs font-bold text-slate-700 mb-2 uppercase tracking-wide"
+        >
           ¿Cuál es tu objetivo en la plataforma?
-        </label>
+        </span>
         <div className="grid grid-cols-2 gap-3">
           <button
             type="button"
+            aria-pressed={role === "client"}
             onClick={() => setRole("client")}
-            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-4 text-center transition-all ${
+            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-4 text-center transition-all cursor-pointer ${
               role === "client"
                 ? "border-[#0F172A] bg-[#0F172A] text-white shadow-md shadow-slate-900/10"
                 : "border-slate-200 bg-slate-50/70 hover:border-slate-300 hover:bg-slate-100/70 text-slate-700"
@@ -71,8 +90,9 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
 
           <button
             type="button"
+            aria-pressed={role === "lawyer"}
             onClick={() => setRole("lawyer")}
-            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-4 text-center transition-all ${
+            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-4 text-center transition-all cursor-pointer ${
               role === "lawyer"
                 ? "border-[#0F172A] bg-[#0F172A] text-white shadow-md shadow-slate-900/10"
                 : "border-slate-200 bg-slate-50/70 hover:border-slate-300 hover:bg-slate-100/70 text-slate-700"
@@ -102,25 +122,29 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+          <label htmlFor="register-first-name" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
             Nombres
           </label>
           <input
+            id="register-first-name"
             type="text"
             name="firstName"
             required
+            autoComplete="given-name"
             placeholder="Carlos"
             className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 px-3.5 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+          <label htmlFor="register-last-name" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
             Apellidos
           </label>
           <input
+            id="register-last-name"
             type="text"
             name="lastName"
             required
+            autoComplete="family-name"
             placeholder="Ramos Vega"
             className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 px-3.5 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
           />
@@ -128,7 +152,7 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
       </div>
 
       <div>
-        <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+        <label htmlFor="register-email" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
           Correo Electrónico
         </label>
         <div className="relative">
@@ -136,9 +160,11 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
             <Mail className="w-4 h-4" />
           </span>
           <input
+            id="register-email"
             type="email"
             name="email"
             required
+            autoComplete="email"
             defaultValue={initialEmail}
             placeholder="carlos@ejemplo.pe"
             className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-10 pr-4 py-2.5 text-sm text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
@@ -148,7 +174,7 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+          <label htmlFor="register-password" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
             Contraseña
           </label>
           <div className="relative">
@@ -156,16 +182,19 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
               <Lock className="w-3.5 h-3.5" />
             </span>
             <input
+              id="register-password"
               type="password"
               name="password"
               required
+              minLength={8}
+              autoComplete="new-password"
               placeholder="Mínimo 8 caracteres"
               className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-9 pr-3 py-2.5 text-xs text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
             />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
+          <label htmlFor="register-confirm-password" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wide">
             Confirmar Clave
           </label>
           <div className="relative">
@@ -173,9 +202,12 @@ export function RegisterForm({ initialRole, initialEmail = "" }: RegisterFormPro
               <Lock className="w-3.5 h-3.5" />
             </span>
             <input
+              id="register-confirm-password"
               type="password"
               name="confirmPassword"
               required
+              minLength={8}
+              autoComplete="new-password"
               placeholder="Repite tu contraseña"
               className="w-full rounded-xl border border-slate-300/80 bg-slate-50/70 pl-9 pr-3 py-2.5 text-xs text-[#0F172A] placeholder:text-slate-400 focus:bg-white focus:border-[#2563EB] focus:ring-2 focus:ring-[#2563EB]/15 focus:outline-none transition-all"
             />

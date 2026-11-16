@@ -3,7 +3,18 @@ import { z } from "zod";
 export const UploadCaseDocSchema = z.object({
   caseId: z.string().uuid("ID de caso inválido"),
   fileName: z.string().min(1, "Nombre de archivo requerido"),
-  storagePath: z.string().min(5, "Ruta de almacenamiento requerida"),
+  storagePath: z
+    .string()
+    .min(5, "Ruta de almacenamiento requerida")
+    .max(500, "Ruta de almacenamiento demasiado larga")
+    .refine(
+      (val) =>
+        !val.includes("..") &&
+        !val.startsWith("/") &&
+        !/^[a-zA-Z]+:/i.test(val) &&
+        /^[a-zA-Z0-9_./-]+$/.test(val),
+      "Ruta de almacenamiento inválida"
+    ),
   fileSizeBytes: z
     .number()
     .max(26214400, "El documento no debe exceder los 25MB"),

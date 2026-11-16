@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getUserConversationsAction } from "@/actions/chat.actions";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { MessageSquare, ShieldCheck, Scale, ArrowRight } from "lucide-react";
 import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Mensajería Jurídica Segura | ALYA Perú",
+  description:
+    "Canal de comunicación confidencial entre cliente y abogado colegiado amparado por secreto profesional en ALYA Perú.",
+};
 
 export default async function ChatIndexPage() {
   const supabase = await createClient();

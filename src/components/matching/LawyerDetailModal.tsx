@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -14,6 +15,7 @@ import {
 } from "lucide-react";
 import type { MatchRecord } from "./SwipeCard";
 import ExplicabilityChips from "./ExplicabilityChips";
+import { cleanLawyerName, formatBarLabel, pluralize } from "@/lib/utils";
 
 interface LawyerDetailModalProps {
   isOpen: boolean;
@@ -34,6 +36,18 @@ export default function LawyerDetailModal({
   onExpressInterest,
   isInterested = false,
 }: LawyerDetailModalProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen || !match) return null;
 
   const lawyer = match.lawyer_profiles;
@@ -91,7 +105,7 @@ export default function LawyerDetailModal({
               <div className="space-y-1 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 id="modal-lawyer-name" className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 font-sans">
-                    {profile.first_name} {profile.last_name}
+                    {cleanLawyerName(`${profile.first_name || ""} ${profile.last_name || ""}`)}
                   </h2>
                   {isVerified && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-[#E8F5E9] border border-[#198754]/20 px-2.5 py-0.5 text-xs font-bold text-[#198754]">
@@ -106,7 +120,7 @@ export default function LawyerDetailModal({
                 </p>
 
                 <p className="text-xs text-[#667085]">
-                  {lawyer.bar_association} • Colegiatura N.° {lawyer.bar_number}
+                  {formatBarLabel(lawyer.bar_association, lawyer.bar_number)}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-4 pt-1 text-xs text-[#667085]">
@@ -114,7 +128,7 @@ export default function LawyerDetailModal({
                     <Star className="w-3.5 h-3.5 fill-[#101828] text-[#101828]" />
                     {lawyer.rating_average ? lawyer.rating_average.toFixed(1) : "5.0"}
                     <span className="text-[#667085] font-normal">
-                      ({lawyer.total_reviews} {lawyer.total_reviews === 1 ? "reseña" : "reseñas"})
+                      ({lawyer.total_reviews} {pluralize(lawyer.total_reviews, "reseña", "reseñas")})
                     </span>
                   </span>
                   <span>•</span>

@@ -37,15 +37,17 @@ export function ScheduleConsultationModal({
   consultationPrice,
   onBookingSuccess,
 }: ScheduleConsultationModalProps) {
-  // Generar próximos 14 días disponibles
+  // Generar próximos 14 días disponibles en zona fija America/Lima
   const dates = Array.from({ length: 14 }).map((_, i) => {
     const d = new Date();
     d.setDate(d.getDate() + i + 1);
-    const dateStr = d.toISOString().split("T")[0];
-    const dayName = d.toLocaleDateString("es-PE", { weekday: "short" });
-    const dayNumber = d.getDate();
-    const monthName = d.toLocaleDateString("es-PE", { month: "short" });
-    return { dateStr, dayName, dayNumber, monthName, rawDate: d };
+    const limaStr = d.toLocaleDateString("en-CA", { timeZone: "America/Lima" });
+    const dayName = d.toLocaleDateString("es-PE", { weekday: "short", timeZone: "America/Lima" });
+    const dayNumber = Number(
+      d.toLocaleDateString("en-US", { day: "numeric", timeZone: "America/Lima" })
+    );
+    const monthName = d.toLocaleDateString("es-PE", { month: "short", timeZone: "America/Lima" });
+    return { dateStr: limaStr, dayName, dayNumber, monthName, rawDate: d };
   });
 
   const [selectedDate, setSelectedDate] = useState<string>(dates[0].dateStr);

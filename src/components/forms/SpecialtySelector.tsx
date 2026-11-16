@@ -17,32 +17,54 @@ interface SpecialtySelectorProps {
 }
 
 export function SpecialtySelector({ specialties, selected, onChange }: SpecialtySelectorProps) {
-  // Filtrar áreas principales (parent_id === null)
-  const mainAreas = specialties.filter((s) => s.parent_id === null);
+  // Separar estrictamente ramas principales y subespecialidades (H33)
+  const mainAreas = specialties.filter((s) => s.parent_id === null || s.parent_id === undefined);
+  const subAreas = specialties.filter((s) => s.parent_id !== null && s.parent_id !== undefined);
+
+  // Mantener únicamente selecciones existentes en el catálogo para que contador y fichas coincidan 100%
+  const validSelected = selected.filter((item) =>
+    specialties.some((spec) => spec.id === item.specialtyId)
+  );
+
+  const selectedMainIds = new Set(
+    validSelected
+      .filter((item) => mainAreas.some((m) => m.id === item.specialtyId))
+      .map((item) => item.specialtyId)
+  );
+
+  const visibleSubAreas =
+    selectedMainIds.size > 0
+      ? subAreas.filter(
+          (sub) =>
+            (sub.parent_id !== null && selectedMainIds.has(sub.parent_id)) ||
+            validSelected.some((v) => v.specialtyId === sub.id)
+        )
+      : subAreas;
 
   const toggleSpecialty = (id: number) => {
-    const exists = selected.some((s) => s.specialtyId === id);
+    const exists = validSelected.some((s) => s.specialtyId === id);
     if (exists) {
-      const filtered = selected.filter((s) => s.specialtyId !== id);
-      // Si eliminamos la primaria y quedan otras, poner la primera como primaria
-      if (selected.find((s) => s.specialtyId === id)?.isPrimary && filtered.length > 0) {
+      const filtered = validSelected
+        .filter((s) => s.specialtyId !== id)
+        .map((s) => ({ ...s }));
+      if (validSelected.find((s) => s.specialtyId === id)?.isPrimary && filtered.length > 0) {
         filtered[0].isPrimary = true;
       }
       onChange(filtered);
     } else {
       onChange([
-        ...selected,
+        ...validSelected,
         {
           specialtyId: id,
           experienceYears: 1,
-          isPrimary: selected.length === 0, // Primera seleccionada es primaria por defecto
+          isPrimary: validSelected.length === 0,
         },
       ]);
     }
   };
 
   const setPrimary = (id: number) => {
-    const updated = selected.map((s) => ({
+    const updated = validSelected.map((s) => ({
       ...s,
       isPrimary: s.specialtyId === id,
     }));
@@ -50,52 +72,100 @@ export function SpecialtySelector({ specialties, selected, onChange }: Specialty
   };
 
   const setYears = (id: number, years: number) => {
-    const updated = selected.map((s) =>
+    const updated = validSelected.map((s) =>
       s.specialtyId === id ? { ...s, experienceYears: Math.max(0, years) } : s
     );
     onChange(updated);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-semibold text-slate-700">
-          Ramas del Derecho en las que ejerces{" "}
+        <span className="text-sm font-semibold text-slate-700">
+          Ramas Principales y Subespecialidades{" "}
           <span className="text-[#2563EB]">*</span>
-        </label>
+        </span>
         <span className="text-xs text-slate-500 font-mono">
-          {selected.length} seleccionada(s)
+          {validSelected.length} seleccionada(s)
         </span>
       </div>
 
-      {/* Grid de ramas principales */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50/70">
-        {mainAreas.map((spec) => {
-          const isSelected = selected.some((s) => s.specialtyId === spec.id);
-          return (
-            <button
-              type="button"
-              key={spec.id}
-              onClick={() => toggleSpecialty(spec.id)}
-              className={`flex items-center justify-between gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all text-left ${
-                isSelected
-                  ? "border-blue-400 bg-blue-50 text-[#2563EB] font-bold shadow-2xs"
-                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-              }`}
-            >
-              <span className="truncate">{spec.name}</span>
-              {isSelected ? (
-                <Check className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
-              ) : (
-                <Plus className="h-3 w-3 shrink-0 text-slate-400" />
-              )}
-            </button>
-          );
-        })}
+      {/* Sección 1: Ramas Principales */}
+      <div className="space-y-2">
+        <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+          1. Ramas Principales del Derecho ({mainAreas.length})
+        </span>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-56 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50/70">
+          {mainAreas.map((spec) => {
+            const isSelected = validSelected.some((s) => s.specialtyId === spec.id);
+            return (
+              <button
+                type="button"
+                key={spec.id}
+                aria-pressed={isSelected}
+                onClick={() => toggleSpecialty(spec.id)}
+                className={`flex items-center justify-between gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all text-left cursor-pointer ${
+                  isSelected
+                    ? "border-blue-400 bg-blue-50 text-[#2563EB] font-bold shadow-2xs"
+                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                }`}
+              >
+                <span className="truncate">{spec.name}</span>
+                {isSelected ? (
+                  <Check className="h-3.5 w-3.5 shrink-0 text-[#2563EB]" />
+                ) : (
+                  <Plus className="h-3 w-3 shrink-0 text-slate-400" />
+                )}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* Sección 2: Subespecialidades Específicas (si existen en catálogo) */}
+      {visibleSubAreas.length > 0 && (
+        <div className="space-y-2">
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+            2. Subespecialidades Procesales ({visibleSubAreas.length})
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 rounded-xl border border-slate-200 bg-slate-50/70">
+            {visibleSubAreas.map((sub) => {
+              const isSelected = validSelected.some((s) => s.specialtyId === sub.id);
+              const parentName = mainAreas.find((m) => m.id === sub.parent_id)?.name;
+              return (
+                <button
+                  type="button"
+                  key={sub.id}
+                  aria-pressed={isSelected}
+                  onClick={() => toggleSpecialty(sub.id)}
+                  className={`flex items-center justify-between gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-all text-left cursor-pointer ${
+                    isSelected
+                      ? "border-indigo-400 bg-indigo-50 text-indigo-700 font-bold shadow-2xs"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <span className="block truncate">{sub.name}</span>
+                    {parentName && (
+                      <span className="block text-[9px] text-slate-400 truncate">
+                        {parentName}
+                      </span>
+                    )}
+                  </div>
+                  {isSelected ? (
+                    <Check className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+                  ) : (
+                    <Plus className="h-3 w-3 shrink-0 text-slate-400" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Configuración de especialidades seleccionadas */}
-      {selected.length > 0 && (
+      {validSelected.length > 0 && (
         <div className="space-y-2.5 pt-2">
           <p className="text-xs text-slate-500">
             Define tus años de experiencia y marca con la estrella{" "}
@@ -104,8 +174,9 @@ export function SpecialtySelector({ specialties, selected, onChange }: Specialty
           </p>
 
           <div className="space-y-2">
-            {selected.map((item) => {
+            {validSelected.map((item) => {
               const spec = specialties.find((s) => s.id === item.specialtyId);
+              const isSub = spec?.parent_id !== null && spec?.parent_id !== undefined;
               return (
                 <div
                   key={item.specialtyId}
@@ -116,7 +187,7 @@ export function SpecialtySelector({ specialties, selected, onChange }: Specialty
                       type="button"
                       onClick={() => setPrimary(item.specialtyId)}
                       title={item.isPrimary ? "Especialidad principal" : "Marcar como principal"}
-                      className={`p-1 rounded transition-colors ${
+                      className={`p-1 rounded transition-colors cursor-pointer ${
                         item.isPrimary
                           ? "text-[#2563EB]"
                           : "text-slate-400 hover:text-slate-600"
@@ -129,7 +200,10 @@ export function SpecialtySelector({ specialties, selected, onChange }: Specialty
                       />
                     </button>
                     <span className="font-semibold text-[#0F172A] truncate">
-                      {spec?.name}
+                      {spec?.name || `Especialidad #${item.specialtyId}`}
+                    </span>
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                      {isSub ? "Subespecialidad" : "Rama principal"}
                     </span>
                     {item.isPrimary && (
                       <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-[#2563EB] font-mono">
@@ -155,7 +229,7 @@ export function SpecialtySelector({ specialties, selected, onChange }: Specialty
                     <button
                       type="button"
                       onClick={() => toggleSpecialty(item.specialtyId)}
-                      className="p-1 text-slate-400 hover:text-slate-700 transition-colors"
+                      className="p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                       title="Quitar"
                     >
                       <X className="h-4 w-4" />

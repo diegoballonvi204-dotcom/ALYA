@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LawyerScheduleManager } from "@/components/lawyer/LawyerScheduleManager";
-import { Calendar } from "lucide-react";
+import { formatBarLabel } from "@/lib/utils";
+
+export const metadata: Metadata = {
+  title: "Agenda y Consultas Jurídicas | ALYA Perú",
+  description: "Gestiona tu disponibilidad semanal y las consultas jurídicas agendadas.",
+};
 
 export default async function LawyerSchedulePage() {
   const supabase = await createClient();
@@ -24,12 +30,24 @@ export default async function LawyerSchedulePage() {
     redirect("/onboarding/lawyer");
   }
 
-  // 2. Obtener horarios semanales configurados
-  const { data: schedules } = await supabase
+  // 2. Obtener horarios semanales configurados (con fallback en metadata)
+  let { data: schedules } = await supabase
     .from("lawyer_schedules")
     .select("*")
     .eq("lawyer_id", lp.id)
     .order("day_of_week", { ascending: true });
+
+  if (!schedules || schedules.length === 0) {
+    const { data: verif } = await supabase
+      .from("verifications")
+      .select("documents_metadata")
+      .eq("lawyer_id", lp.id)
+      .maybeSingle();
+    const metaSchedules = (verif?.documents_metadata as any)?.weekly_schedules;
+    if (Array.isArray(metaSchedules) && metaSchedules.length > 0) {
+      schedules = metaSchedules;
+    }
+  }
 
   // 3. Obtener consultas registradas para este abogado
   const { data: rawConsultations } = await supabase
@@ -39,6 +57,7 @@ export default async function LawyerSchedulePage() {
       case_id,
       client_id,
       scheduled_at,
+      created_at,
       duration_minutes,
       modality,
       agreed_price,
@@ -59,25 +78,54 @@ export default async function LawyerSchedulePage() {
       )
     `)
     .eq("lawyer_id", lp.id)
-    .order("scheduled_at", { ascending: false });
+    .order("created_at", { ascending: false });
 
-  const formattedConsultations = (rawConsultations || []).map((c: any) => ({
-    id: c.id,
-    case_id: c.case_id,
-    case_title: c.cases?.title || "Caso Legal",
-    client_name: `${c.profiles?.first_name || "Cliente"} ${c.profiles?.last_name || ""}`.trim(),
-    scheduled_at: c.scheduled_at,
-    duration_minutes: c.duration_minutes,
-    modality: c.modality,
-    agreed_price: Number(c.agreed_price) || 0,
-    status: c.status,
-    payment_status: c.payment_status || "pending_payment",
-    payment_method: c.payment_method || null,
-    room_passcode: c.room_passcode || null,
-    meeting_link: c.meeting_link,
-    meeting_address: c.meeting_address,
-    notes: c.notes,
-  }));
+  // H10: Deduplicar solicitudes pendientes idénticas y marcar como vencidas (>48h sin abono)
+  const nowMs = Date.now();
+  const seenPendingKeys = new Set<string>();
+  const formattedConsultations = (rawConsultations || [])
+    .filter((c: any) => {
+      if (
+        c.status === "requested" &&
+        (!c.payment_status || c.payment_status === "pending_payment")
+      ) {
+        const dedupKey = `${c.case_id}:${c.client_id}:${Number(c.agreed_price) || 0}`;
+        if (seenPendingKeys.has(dedupKey)) {
+          return false;
+        }
+        seenPendingKeys.add(dedupKey);
+      }
+      return true;
+    })
+    .map((c: any) => {
+      const isPendingPayment =
+        !c.payment_status || c.payment_status === "pending_payment";
+      const createdOrScheduledMs = new Date(
+        c.created_at || c.scheduled_at
+      ).getTime();
+      const isExpiredPending =
+        c.status === "requested" &&
+        isPendingPayment &&
+        nowMs - createdOrScheduledMs > 48 * 60 * 60 * 1000;
+
+      return {
+        id: c.id,
+        case_id: c.case_id,
+        case_title: c.cases?.title || "Caso Legal",
+        client_name: `${c.profiles?.first_name || "Cliente"} ${c.profiles?.last_name || ""}`.trim(),
+        scheduled_at: c.scheduled_at,
+        duration_minutes: c.duration_minutes,
+        modality: c.modality,
+        agreed_price: Number(c.agreed_price) || 0,
+        status: isExpiredPending ? "expired" : c.status,
+        payment_status: c.payment_status || "pending_payment",
+        payment_method: c.payment_method || null,
+        room_passcode: c.room_passcode || null,
+        meeting_link: c.meeting_link,
+        meeting_address: c.meeting_address,
+        notes: c.notes,
+      };
+    });
 
   return (
     <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-12 py-8 space-y-8">
@@ -91,7 +139,7 @@ export default async function LawyerSchedulePage() {
             Agenda y Consultas Jurídicas
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Matrícula {lp.bar_association} CAL {lp.bar_number} • Define tus horarios de atención y coordina citas con tus clientes.
+            Matrícula {formatBarLabel(lp.bar_association, lp.bar_number)} • Define tus horarios de atención y coordina citas con tus clientes.
           </p>
         </div>
       </div>

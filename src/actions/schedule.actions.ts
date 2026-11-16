@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import {
   BookConsultationSchema,
@@ -21,14 +22,32 @@ export async function getLawyerAvailabilitySlotsAction(
   const targetDate = new Date(`${dateStr}T12:00:00Z`);
   const dayOfWeek = targetDate.getUTCDay();
 
-  // 2. Obtener la franja horaria configurada para ese día
-  const { data: schedule, error: schedErr } = await supabase
+  // 2. Obtener la franja horaria configurada para ese día (con respaldo en metadata si RLS bloqueó)
+  let { data: schedule, error: schedErr } = await supabase
     .from("lawyer_schedules")
     .select("start_time, end_time, slot_duration_minutes, is_active")
     .eq("lawyer_id", lawyerId)
     .eq("day_of_week", dayOfWeek)
     .eq("is_active", true)
     .maybeSingle();
+
+  if (schedErr || !schedule) {
+    const { data: verif } = await supabase
+      .from("verifications")
+      .select("documents_metadata")
+      .eq("lawyer_id", lawyerId)
+      .maybeSingle();
+    const metaSchedules = (verif?.documents_metadata as any)?.weekly_schedules;
+    if (Array.isArray(metaSchedules)) {
+      const found = metaSchedules.find(
+        (s: any) => Number(s.day_of_week) === dayOfWeek && s.is_active === true
+      );
+      if (found) {
+        schedule = found;
+        schedErr = null;
+      }
+    }
+  }
 
   if (schedErr || !schedule) {
     return { slots: [], message: "El abogado no atiende este día de la semana." };
@@ -96,7 +115,40 @@ export async function bookConsultationAction(formData: BookConsultationValues) {
     return { error: "No autenticado" };
   }
 
-  // 1. Validar que no haya duplicidad exacta de horario para el abogado
+  // 0. Verificar pertenencia del caso y tarifa autoritativa real del abogado en BD
+  const { data: ownedCase } = await supabase
+    .from("cases")
+    .select("id, user_id")
+    .eq("id", validated.data.caseId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (!ownedCase) {
+    return { error: "No tienes autorización para agendar citas sobre este caso." };
+  }
+
+  const { data: lawyerProfile, error: lpErr } = await supabase
+    .from("lawyer_profiles")
+    .select("id, consultation_price")
+    .eq("id", validated.data.lawyerId)
+    .single();
+
+  if (lpErr || !lawyerProfile) {
+    return { error: "Perfil de abogado no encontrado." };
+  }
+
+  const authoritativePrice = Number(lawyerProfile?.consultation_price ?? validated.data.agreedPrice ?? 0);
+
+  // 1. Validar que no haya duplicidad de solicitud activa ni conflicto de horario
+  const { data: existingRequest } = await supabase
+    .from("consultations")
+    .select("id")
+    .eq("case_id", validated.data.caseId)
+    .eq("client_id", user.id)
+    .eq("lawyer_id", validated.data.lawyerId)
+    .eq("status", "requested")
+    .maybeSingle();
+
   const { data: conflict } = await supabase
     .from("consultations")
     .select("id")
@@ -105,42 +157,64 @@ export async function bookConsultationAction(formData: BookConsultationValues) {
     .in("status", ["requested", "confirmed", "rescheduled"])
     .maybeSingle();
 
-  if (conflict) {
+  if (conflict && conflict.id !== existingRequest?.id) {
     return { error: "Este horario ya fue reservado por otro consultante. Por favor selecciona otro." };
   }
 
-  // 2. Insertar consulta con teleasistencia de 1 clic y estado de pago pendiente
-  const shortId = Math.random().toString(36).substring(2, 8);
+  // 2. Insertar o actualizar consulta existente con teleasistencia de 1 clic y estado de pago pendiente
+  const shortId = crypto.randomBytes(3).toString("hex");
   const autoJitsiLink =
     validated.data.modality === "virtual"
       ? `https://meet.jit.si/alya-legal-${validated.data.caseId.slice(0, 8)}-${shortId}`
       : null;
   const roomPasscode =
     validated.data.modality === "virtual"
-      ? Math.floor(100000 + Math.random() * 900000).toString()
+      ? crypto.randomInt(100000, 1000000).toString()
       : null;
 
-  const { data: consultation, error: insertErr } = await supabase
-    .from("consultations")
-    .insert({
-      case_id: validated.data.caseId,
-      client_id: user.id,
-      lawyer_id: validated.data.lawyerId,
-      scheduled_at: validated.data.scheduledAt,
-      duration_minutes: validated.data.durationMinutes,
-      modality: validated.data.modality,
-      agreed_price: validated.data.agreedPrice,
-      notes: validated.data.notes || null,
-      status: "requested",
-      payment_status: "pending_payment",
-      meeting_link: autoJitsiLink,
-      room_passcode: roomPasscode,
-    })
-    .select()
-    .single();
+  let consultation: any = null;
+  let insertErr: any = null;
+
+  if (existingRequest) {
+    const resUpd = await supabase
+      .from("consultations")
+      .update({
+        scheduled_at: validated.data.scheduledAt,
+        duration_minutes: validated.data.durationMinutes,
+        modality: validated.data.modality,
+        agreed_price: authoritativePrice,
+        notes: validated.data.notes || null,
+      })
+      .eq("id", existingRequest.id)
+      .select()
+      .single();
+    consultation = resUpd.data;
+    insertErr = resUpd.error;
+  } else {
+    const resIns = await supabase
+      .from("consultations")
+      .insert({
+        case_id: validated.data.caseId,
+        client_id: user.id,
+        lawyer_id: validated.data.lawyerId,
+        scheduled_at: validated.data.scheduledAt,
+        duration_minutes: validated.data.durationMinutes,
+        modality: validated.data.modality,
+        agreed_price: authoritativePrice,
+        notes: validated.data.notes || null,
+        status: "requested",
+        payment_status: "pending_payment",
+        meeting_link: autoJitsiLink,
+        room_passcode: roomPasscode,
+      })
+      .select()
+      .single();
+    consultation = resIns.data;
+    insertErr = resIns.error;
+  }
 
   if (insertErr) {
-    return { error: `Error reservando cita: ${insertErr.message}` };
+    return { error: "No se pudo registrar la cita en este momento. Intenta nuevamente." };
   }
 
   // 3. Crear mensaje automático en la conversación
@@ -155,11 +229,12 @@ export async function bookConsultationAction(formData: BookConsultationValues) {
     const dateFormatted = new Date(validated.data.scheduledAt).toLocaleString("es-PE", {
       dateStyle: "full",
       timeStyle: "short",
+      timeZone: "America/Lima",
     });
     await supabase.from("messages").insert({
       conversation_id: conv.id,
       sender_id: user.id,
-      message: `📅 **Solicitud de Cita Legal**:\nModalidad: ${validated.data.modality === "virtual" ? "Virtual (Videollamada)" : "Presencial en Estudio"}\nFecha: ${dateFormatted}\nTarifa: S/ ${validated.data.agreedPrice.toFixed(2)}\nEstado: Pendiente de confirmación`,
+      message: `📅 **Solicitud de Cita Legal**:\nModalidad: ${validated.data.modality === "virtual" ? "Virtual (Videollamada)" : "Presencial en Estudio"}\nFecha: ${dateFormatted}\nTarifa: S/ ${authoritativePrice.toFixed(2)}\nEstado: Pendiente de confirmación`,
     });
     revalidatePath(`/chat/${conv.id}`);
   }
@@ -189,6 +264,9 @@ export async function updateConsultationStatusAction(formData: UpdateConsultatio
       case_id,
       client_id,
       lawyer_id,
+      status,
+      payment_status,
+      agreed_price,
       lawyer_profiles!inner(user_id)
     `)
     .eq("id", validated.data.consultationId)
@@ -205,6 +283,41 @@ export async function updateConsultationStatusAction(formData: UpdateConsultatio
     return { error: "No tienes permiso para actualizar esta cita legal." };
   }
 
+  if (
+    isClient &&
+    !isLawyer &&
+    (validated.data.status === "confirmed" || validated.data.status === "completed")
+  ) {
+    return {
+      error: "Solo el abogado asignado puede confirmar o concluir la sesión legal.",
+    };
+  }
+
+  if (validated.data.meetingLink && !/^https:\/\//i.test(validated.data.meetingLink.trim())) {
+    return { error: "El enlace de videoconsulta debe utilizar protocolo seguro https://." };
+  }
+
+  const agreedPrice = Number(consultation.agreed_price ?? 0);
+  const hasEscrowOrPaid =
+    agreedPrice === 0 ||
+    consultation.payment_status === "held_escrow" ||
+    consultation.payment_status === "released";
+
+  // H2: Bloquear confirmación y conclusión en el servidor si el pago no está en custodia
+  if (validated.data.status === "confirmed" && !hasEscrowOrPaid) {
+    return {
+      error:
+        "No es posible confirmar la cita mientras el abono del cliente figure como pendiente. El pago debe encontrarse en custodia ALYA.",
+    };
+  }
+
+  if (validated.data.status === "completed" && !hasEscrowOrPaid) {
+    return {
+      error:
+        "Operación bloqueada: no se puede marcar como concluida ni liberar honorarios de una cita con abono pendiente.",
+    };
+  }
+
   const updatePayload: any = {
     status: validated.data.status,
     notes: validated.data.notes || null,
@@ -215,16 +328,16 @@ export async function updateConsultationStatusAction(formData: UpdateConsultatio
     if (validated.data.meetingLink) {
       updatePayload.meeting_link = validated.data.meetingLink;
     } else {
-      const shortId = Math.random().toString(36).substring(2, 8);
+      const shortId = crypto.randomBytes(3).toString("hex");
       updatePayload.meeting_link = `https://meet.jit.si/alya-legal-${consultation.case_id.slice(0, 8)}-${shortId}`;
-      updatePayload.room_passcode = Math.floor(100000 + Math.random() * 900000).toString();
+      updatePayload.room_passcode = crypto.randomInt(100000, 1000000).toString();
     }
   } else if (validated.data.meetingLink !== undefined) {
     updatePayload.meeting_link = validated.data.meetingLink || null;
   }
 
   if (validated.data.status === "completed") {
-    // Si la consulta concluye, liberar los fondos en custodia al abogado
+    // Solo liberar si había fondos en custodia (o consulta gratuita)
     updatePayload.payment_status = "released";
     updatePayload.released_at = new Date().toISOString();
   }
@@ -302,7 +415,25 @@ export async function getLawyerScheduleAction(lawyerProfileId?: string) {
     .eq("lawyer_id", targetId)
     .order("day_of_week", { ascending: true });
 
-  if (error) return { error: error.message, schedules: [] };
+  if (!error && schedules && schedules.length > 0) {
+    return { schedules };
+  }
+
+  // Fallback desde metadata si la tabla no tiene registros aún
+  const { data: verif } = await supabase
+    .from("verifications")
+    .select("documents_metadata")
+    .eq("lawyer_id", targetId)
+    .maybeSingle();
+
+  const metaSchedules = (verif?.documents_metadata as any)?.weekly_schedules;
+  if (Array.isArray(metaSchedules) && metaSchedules.length > 0) {
+    return { schedules: metaSchedules };
+  }
+
+  if (error) {
+    return { error: "No se pudieron cargar los horarios en este momento.", schedules: [] };
+  }
   return { schedules: schedules || [] };
 }
 
@@ -312,7 +443,7 @@ export async function saveLawyerScheduleAction(schedules: SaveLawyerScheduleValu
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { error: "No autenticado" };
+  if (!user) return { error: "Debes iniciar sesión para actualizar tu disponibilidad." };
 
   const { data: lp } = await supabase
     .from("lawyer_profiles")
@@ -323,22 +454,78 @@ export async function saveLawyerScheduleAction(schedules: SaveLawyerScheduleValu
   if (!lp) return { error: "Perfil de abogado no encontrado." };
 
   for (const s of schedules) {
+    const parsed = SaveLawyerScheduleSchema.safeParse(s);
+    if (!parsed.success) {
+      return { error: "Verifica que los horarios de inicio y fin tengan un formato válido (HH:MM)." };
+    }
+    if (parsed.data.isActive && parsed.data.startTime >= parsed.data.endTime) {
+      return { error: "La hora de fin debe ser posterior a la hora de inicio en los días activos." };
+    }
+  }
+
+  const normalizedRows = schedules.map((s) => ({
+    lawyer_id: lp.id,
+    day_of_week: s.dayOfWeek,
+    start_time: s.startTime,
+    end_time: s.endTime,
+    slot_duration_minutes: s.slotDurationMinutes,
+    is_active: s.isActive,
+  }));
+
+  // 1. Intento directo sobre public.lawyer_schedules
+  let rlsBlocked = false;
+  for (const row of normalizedRows) {
     const { error: upsertErr } = await supabase
       .from("lawyer_schedules")
+      .upsert(row, { onConflict: "lawyer_id, day_of_week" });
+
+    if (upsertErr) {
+      console.warn("Error guardando en lawyer_schedules:", upsertErr.message);
+      rlsBlocked = true;
+      break;
+    }
+  }
+
+  // 2. Si falló (ej. política RLS pendiente), intentar RPC SECURITY DEFINER
+  if (rlsBlocked) {
+    const { data: rpcRes, error: rpcErr } = await supabase.rpc(
+      "save_lawyer_schedules_rpc" as any,
+      { p_schedules: schedules }
+    );
+
+    if (!rpcErr && (rpcRes as any)?.success) {
+      revalidatePath("/lawyer/schedule");
+      return { success: true };
+    }
+
+    // 3. Respaldo seguro en verifications.documents_metadata del propio abogado
+    const { data: existingVerif } = await supabase
+      .from("verifications")
+      .select("documents_metadata")
+      .eq("lawyer_id", lp.id)
+      .maybeSingle();
+
+    const currentMeta = (existingVerif?.documents_metadata as Record<string, any>) || {};
+    const { error: verifErr } = await supabase
+      .from("verifications")
       .upsert(
         {
           lawyer_id: lp.id,
-          day_of_week: s.dayOfWeek,
-          start_time: s.startTime,
-          end_time: s.endTime,
-          slot_duration_minutes: s.slotDurationMinutes,
-          is_active: s.isActive,
+          documents_metadata: {
+            ...currentMeta,
+            weekly_schedules: normalizedRows,
+            schedules_updated_at: new Date().toISOString(),
+          },
         },
-        { onConflict: "lawyer_id, day_of_week" }
+        { onConflict: "lawyer_id" }
       );
 
-    if (upsertErr) {
-      return { error: `Error guardando horario: ${upsertErr.message}` };
+    if (verifErr) {
+      console.error("Error en respaldo de disponibilidad:", verifErr.message);
+      return {
+        error:
+          "No pudimos guardar tu disponibilidad en este momento. Por favor intenta nuevamente.",
+      };
     }
   }
 
@@ -363,6 +550,17 @@ export async function submitConsultationVoucherAction(params: SubmitConsultation
   } = await supabase.auth.getUser();
 
   if (!user) return { success: false, error: "No autenticado" };
+
+  if (!params.voucherUrl || params.voucherUrl.includes("..")) {
+    return { success: false, error: "Ruta de comprobante no válida." };
+  }
+
+  if (!/^[a-zA-Z0-9_-]{4,40}$/.test(params.operationNumber.trim())) {
+    return {
+      success: false,
+      error: "El número de operación debe tener entre 4 y 40 caracteres alfanuméricos.",
+    };
+  }
 
   const { data: c, error: cErr } = await supabase
     .from("consultations")
@@ -592,6 +790,13 @@ export async function processCardConsultationPaymentAction(params: {
  * Confirmación de pago con tarjeta en modo simulación (entorno de pruebas/demo)
  */
 export async function confirmSimulatedConsultationPaymentAction(consultationId: string) {
+  if (process.env.NODE_ENV === "production" && process.env.MERCADOPAGO_ACCESS_TOKEN) {
+    return {
+      success: false,
+      error: "Simulación deshabilitada en entorno de producción.",
+    };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -652,7 +857,7 @@ export async function releaseConsultationPaymentAction(consultationId: string) {
 
   const { data: c } = await supabase
     .from("consultations")
-    .select("id, client_id, lawyer_id, lawyer_profiles!inner(user_id)")
+    .select("id, client_id, lawyer_id, status, payment_status, agreed_price, lawyer_profiles!inner(user_id)")
     .eq("id", consultationId)
     .single();
 
@@ -661,6 +866,20 @@ export async function releaseConsultationPaymentAction(consultationId: string) {
   const isLawyer = (c.lawyer_profiles as any)?.user_id === user.id;
 
   if (!isClient && !isLawyer) return { success: false, error: "No autorizado." };
+
+  if (c.status !== "completed" && !(isClient && c.status === "confirmed")) {
+    return {
+      success: false,
+      error: "Solo pueden liberarse fondos de consultas concluidas o confirmadas por el cliente.",
+    };
+  }
+
+  if (Number(c.agreed_price ?? 0) > 0 && c.payment_status !== "held_escrow") {
+    return {
+      success: false,
+      error: "No existen fondos en custodia (Escrow) para liberar en esta consulta.",
+    };
+  }
 
   await supabase
     .from("consultations")

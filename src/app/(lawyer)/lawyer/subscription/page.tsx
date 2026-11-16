@@ -1,5 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+  title: "Membresía y Facturación | ALYA Perú",
+  description:
+    "Administra tu suscripción profesional, cupo mensual de postulaciones, pagos con tarjeta y comprobantes electrónicos SUNAT.",
+};
 import { getMyLawyerSubscriptionAction, getSubscriptionPlansAction } from "@/actions/subscription.actions";
 import { getMyInvoicesAction } from "@/actions/billing.actions";
 import LawyerTierBadge from "@/components/lawyer/LawyerTierBadge";
@@ -201,7 +208,14 @@ export default async function LawyerSubscriptionPage() {
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Asistente IA: <strong>{currentPlan.has_ai_assistant ? "Habilitado" : "Básico"}</strong></span>
+                <span>
+                  Asistente Legal IA:{" "}
+                  <strong>
+                    {currentPlan.has_ai_assistant
+                      ? "Avanzado (Pro / Élite)"
+                      : "Básico (Viabilidad del caso)"}
+                  </strong>
+                </span>
               </li>
               <li className="flex items-center gap-2">
                 <Check className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -249,6 +263,10 @@ export default async function LawyerSubscriptionPage() {
                 <li className="flex items-center gap-2">
                   <Check className="w-4 h-4 text-slate-400" />
                   <span>Chat seguro con el cliente</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-slate-400" />
+                  <span>Asistente IA Básico (viabilidad del caso)</span>
                 </li>
               </ul>
             </div>
@@ -318,6 +336,7 @@ export default async function LawyerSubscriptionPage() {
                 planName="ALYA Pro"
                 tier="pro"
                 isCurrentPlan={currentPlan.tier === "pro"}
+                initialTab="card"
               />
             </div>
           </div>
@@ -365,6 +384,7 @@ export default async function LawyerSubscriptionPage() {
                 planName="Élite Estudio"
                 tier="elite"
                 isCurrentPlan={currentPlan.tier === "elite"}
+                initialTab="card"
               />
             </div>
           </div>
@@ -396,13 +416,18 @@ export default async function LawyerSubscriptionPage() {
                 </div>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Cobro recurrente mensual o anual automatizado. Facturación electrónica inmediata a tu correo electrónico.
+                Activación inmediata mensual o anual mediante tarjeta de crédito o débito con emisión de comprobante SUNAT.
               </p>
             </div>
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600">
-                🔒 Procesamiento Seguro PCI-DSS Nivel 1
-              </span>
+            <div className="pt-3 border-t border-slate-100">
+              <SubscriptionClientActions
+                planId="pro_monthly"
+                planName="ALYA Pro"
+                tier="pro"
+                isCurrentPlan={false}
+                initialTab="card"
+                buttonLabel="Pagar y Activar con Tarjeta"
+              />
             </div>
           </div>
 
@@ -419,7 +444,7 @@ export default async function LawyerSubscriptionPage() {
                 </div>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
-                Transfiere directamente a la cuenta corriente institucional de ALYA Perú y adjunta tu comprobante para activación prioritaria en menos de 2 horas.
+                Transfiere a las cuentas habilitadas de ALYA Perú y adjunta tu comprobante para validación administrativa.
               </p>
             </div>
             <div className="pt-3 border-t border-purple-100">
@@ -428,6 +453,8 @@ export default async function LawyerSubscriptionPage() {
                 planName="ALYA Pro Anual (S/ 790)"
                 tier="pro"
                 isCurrentPlan={false}
+                initialTab="transfer"
+                buttonLabel="Subir Comprobante Yape / BCP"
               />
             </div>
           </div>

@@ -102,7 +102,11 @@ export default function LawyerProfileEditor({
   const [addressOffice, setAddressOffice] = useState(initialData.addressOffice || "");
   const [isAvailable, setIsAvailable] = useState(initialData.isAvailable);
 
-  const [selectedSpecialties, setSelectedSpecialties] = useState(lawyerSpecialties);
+  const [selectedSpecialties, setSelectedSpecialties] = useState(() =>
+    lawyerSpecialties.filter((ls) =>
+      specialtiesCatalog.some((c) => c.id === ls.specialtyId)
+    )
+  );
 
   // Estados de control de modales de confirmación y rechazo
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -250,23 +254,31 @@ export default function LawyerProfileEditor({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label htmlFor="lawyer-phone-input" className="block text-xs font-bold text-slate-700 mb-1.5">
                 Número Celular (Perú)
               </label>
               <div className="relative">
                 <span className="absolute left-3.5 top-2.5 text-xs text-slate-400 font-mono">+51</span>
                 <input
+                  id="lawyer-phone-input"
                   type="text"
+                  inputMode="numeric"
                   maxLength={9}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
                   className="w-full rounded-xl border border-slate-200 pl-12 pr-3.5 py-2.5 text-xs text-[#0F172A] font-mono focus:border-blue-600 focus:outline-none"
                   placeholder="987654321"
                 />
               </div>
-              <p className="text-[10px] text-slate-400 mt-1">
-                9 dígitos. Se usará para notificaciones SMS y alertas de citas.
-              </p>
+              {!phone.trim() ? (
+                <p className="text-[10px] text-amber-700 font-semibold mt-1">
+                  Pendiente de completar: ingresa tu celular (9 dígitos) para recibir alertas de guardia y citas.
+                </p>
+              ) : (
+                <p className="text-[10px] text-slate-400 mt-1">
+                  9 dígitos. Se usará para notificaciones SMS y alertas de citas.
+                </p>
+              )}
             </div>
 
             <div>
@@ -529,7 +541,7 @@ export default function LawyerProfileEditor({
 
               <div className="flex justify-between items-center py-1 border-b border-slate-200/60">
                 <span className="text-slate-500 font-medium">Celular de Contacto:</span>
-                <span className="font-bold font-mono text-[#0F172A]">{phone ? `+51 ${phone}` : "No especificado"}</span>
+                <span className="font-bold font-mono text-[#0F172A]">{phone ? `+51 ${phone}` : "Pendiente de completar"}</span>
               </div>
 
               <div className="flex justify-between items-center py-1 border-b border-slate-200/60">

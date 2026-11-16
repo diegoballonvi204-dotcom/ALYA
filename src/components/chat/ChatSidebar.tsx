@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MessageSquare, Search, Award, ShieldCheck, Clock } from "lucide-react";
+import { formatLimaTime } from "@/lib/utils";
 
 export interface ConversationItem {
   id: string;
@@ -19,6 +20,7 @@ export interface ConversationItem {
   lastMessageAt: string;
   unreadCount: number;
   isActive: boolean;
+  matchStatus?: string | null;
 }
 
 interface ChatSidebarProps {
@@ -80,10 +82,7 @@ export function ChatSidebar({
         ) : (
           filtered.map((conv) => {
             const isActive = currentConversationId === conv.id;
-            const timeFormatted = new Date(conv.lastMessageAt).toLocaleTimeString(
-              "es-PE",
-              { hour: "2-digit", minute: "2-digit" }
-            );
+            const timeFormatted = formatLimaTime(conv.lastMessageAt);
 
             return (
               <Link
@@ -130,9 +129,16 @@ export function ChatSidebar({
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-[#2563EB] font-medium truncate mb-1">
-                    {conv.caseTitle}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <p className="text-[11px] text-[#2563EB] font-medium truncate">
+                      {conv.caseTitle}
+                    </p>
+                    {conv.matchStatus === "user_interested" && (
+                      <span className="text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
+                        Pendiente
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[11px] text-slate-500 truncate">

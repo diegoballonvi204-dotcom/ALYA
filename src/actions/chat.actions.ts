@@ -99,19 +99,23 @@ export async function getConversationDetailsAction(conversationId: string) {
     return { error: "No tienes permiso para ver esta conversación." };
   }
 
-  if (
-    rawMatch?.status !== "matched" ||
-    !rawMatch?.user_interest ||
-    !rawMatch?.lawyer_interest
-  ) {
+  const hasMatchInterest =
+    rawMatch?.status === "matched" ||
+    Boolean(rawMatch?.user_interest) ||
+    Boolean(rawMatch?.lawyer_interest);
+
+  if (!rawMatch || rawMatch.status === "discarded" || !hasMatchInterest) {
     return {
       error:
-        "Esta conversación aún no ha sido confirmada por ambas partes. Te notificaremos cuando el abogado acepte tu consulta.",
+        "Esta conversación aún no ha sido habilitada por ninguna de las partes.",
     };
   }
 
-  // 2. Obtener los mensajes de la conversación
-  const { data: messages, error: msgErr } = await supabase
+  const isBilateralMatch =
+    rawMatch.status === "matched" ||
+    (Boolean(rawMatch.user_interest) && Boolean(rawMatch.lawyer_interest));
+
+  const { data: rawMessages, error: msgErr } = await supabase
     .from("messages")
     .select(`
       id,
@@ -129,6 +133,10 @@ export async function getConversationDetailsAction(conversationId: string) {
   if (msgErr) {
     return { error: "Error al cargar mensajes." };
   }
+
+  const messages = (rawMessages || []).filter(
+    (m) => m.message?.trim() !== "Mensaje de prueba: ignorar."
+  );
 
   // 3. Marcar mensajes no leídos de la contraparte como leídos
   const unreadFromOther = (messages || []).filter(
@@ -171,7 +179,7 @@ export async function getConversationDetailsAction(conversationId: string) {
         verificationStatus: null,
       };
 
-  // 5. Consultar si hay una consulta agendada para este caso
+  // 5. Consultar si hay una consulta agendada para este caso y abogado (evitando duplicados)
   let { data: latestConsultation } = await supabase
     .from("consultations")
     .select(`
@@ -188,14 +196,16 @@ export async function getConversationDetailsAction(conversationId: string) {
       room_passcode
     `)
     .eq("case_id", conv.case_id)
+    .eq("lawyer_id", rawLawyer?.id)
+    .neq("status", "cancelled")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const lawyerConsultationPrice = Number(rawLawyer?.consultation_price ?? 0);
 
-  // Si no hay consulta previa creada para este caso, inicializarla con el precio del abogado
-  if (!latestConsultation && rawLawyer?.id && rawCase?.user_id) {
+  // Si no hay consulta previa creada para este caso y el match ya fue confirmado por ambas partes, inicializarla una sola vez
+  if (!latestConsultation && isBilateralMatch && rawLawyer?.id && rawCase?.user_id) {
     const autoMeetingRoom = `https://meet.jit.si/alya-legal-${conv.case_id.replace(/-/g, "").slice(0, 8)}-${Date.now().toString().slice(-6)}`;
     if (lawyerConsultationPrice > 0) {
       const { data: createdConsultation } = await supabase
@@ -288,6 +298,9 @@ export async function getConversationDetailsAction(conversationId: string) {
       caseId: conv.case_id,
       isActive: conv.is_active,
       createdAt: conv.created_at,
+      matchStatus: rawMatch?.status || "pending",
+      userInterest: Boolean(rawMatch?.user_interest),
+      lawyerInterest: Boolean(rawMatch?.lawyer_interest),
     },
     caseData: {
       id: rawCase?.id,
@@ -355,6 +368,7 @@ export async function sendMessageAction(formData: SendMessageValues) {
       ),
       matches (
         lawyer_profiles (
+          user_id,
           consultation_price
         )
       )
@@ -369,25 +383,32 @@ export async function sendMessageAction(formData: SendMessageValues) {
   const rawCase = toObj(conv.cases) as any;
   const isClient = rawCase?.user_id === user.id;
 
-  // Si el remitente es el cliente, verificar si el abogado requiere abono previo de honorarios
-  if (isClient) {
-    const rawMatch = toObj(conv.matches) as any;
-    const rawLawyer = toObj(rawMatch?.lawyer_profiles) as any;
-    const requiredPrice = Number(rawLawyer?.consultation_price ?? 0);
+  // H14: Aplicar la regla de custodia (Escrow) al enviar mensajes tanto para el cliente como para el abogado
+  const rawMatch = toObj(conv.matches) as any;
+  const rawLawyer = toObj(rawMatch?.lawyer_profiles) as any;
+  const isLawyer = rawLawyer?.user_id === user.id;
 
-    if (requiredPrice > 0) {
-      const { data: paidConsultation } = await supabase
-        .from("consultations")
-        .select("id, payment_status")
-        .eq("case_id", conv.case_id)
-        .in("payment_status", ["held_escrow", "released"])
-        .maybeSingle();
+  if (!isClient && !isLawyer) {
+    return { error: "No autorizado para enviar mensajes en esta conversación." };
+  }
 
-      if (!paidConsultation) {
-        return {
-          error: `Debes abonar los honorarios fijados (S/ ${requiredPrice.toFixed(2)}) antes de iniciar la conversación con el abogado.`,
-        };
-      }
+  const requiredPrice = Number(rawLawyer?.consultation_price ?? 0);
+
+  if (requiredPrice > 0) {
+    const { data: paidConsultation } = await supabase
+      .from("consultations")
+      .select("id, payment_status")
+      .eq("case_id", conv.case_id)
+      .in("payment_status", ["held_escrow", "released"])
+      .limit(1)
+      .maybeSingle();
+
+    if (!paidConsultation) {
+      return {
+        error: isClient
+          ? `Debes abonar los honorarios fijados (S/ ${requiredPrice.toFixed(2)}) antes de iniciar la conversación con el abogado.`
+          : `El canal de chat permanece bloqueado hasta que el cliente complete el abono de honorarios (S/ ${requiredPrice.toFixed(2)}) en custodia ALYA.`,
+      };
     }
   }
 
@@ -407,6 +428,52 @@ export async function sendMessageAction(formData: SendMessageValues) {
     return { error: `Error enviando mensaje: ${insertErr.message}` };
   }
 
+  await supabase
+    .from("conversations")
+    .update({ last_message_at: new Date().toISOString() })
+    .eq("id", validated.data.conversationId);
+
+  const recipientUserId = isClient ? rawLawyer?.user_id : rawCase?.user_id;
+  if (recipientUserId && recipientUserId !== user.id) {
+    try {
+      const { data: senderProf } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      const senderName = `${senderProf?.first_name || (isClient ? "Cliente" : "Dr(a).")} ${senderProf?.last_name || ""}`.trim();
+      const preview = validated.data.message.trim().slice(0, 110);
+
+      const { error: notifRpcErr } = await supabase.rpc("create_notification", {
+        p_user_id: recipientUserId,
+        p_type: "message",
+        p_title: `Nuevo mensaje de ${senderName}`,
+        p_message: preview,
+        p_data: {
+          conversationId: validated.data.conversationId,
+          caseId: conv.case_id,
+          actionUrl: `/chat/${validated.data.conversationId}`,
+        },
+      });
+
+      if (notifRpcErr) {
+        await supabase.from("notifications").insert({
+          user_id: recipientUserId,
+          type: "message",
+          title: `Nuevo mensaje de ${senderName}`,
+          message: preview,
+          data: {
+            conversationId: validated.data.conversationId,
+            caseId: conv.case_id,
+            actionUrl: `/chat/${validated.data.conversationId}`,
+          },
+        });
+      }
+    } catch (notifErr) {
+      console.error("Error notificando nuevo mensaje:", notifErr);
+    }
+  }
+
   revalidatePath(`/chat/${validated.data.conversationId}`);
   revalidatePath(`/chat`);
 
@@ -420,6 +487,25 @@ export async function markMessagesAsReadAction(conversationId: string) {
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "No autenticado" };
+
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select(`
+      id,
+      cases ( user_id ),
+      matches ( lawyer_profiles ( user_id ) )
+    `)
+    .eq("id", conversationId)
+    .maybeSingle();
+
+  if (!conv) return { error: "Conversación no encontrada" };
+
+  const rawCase = toObj(conv.cases) as any;
+  const rawMatch = toObj(conv.matches) as any;
+  const rawLawyer = toObj(rawMatch?.lawyer_profiles) as any;
+  if (rawCase?.user_id !== user.id && rawLawyer?.user_id !== user.id) {
+    return { error: "No autorizado" };
+  }
 
   await supabase
     .from("messages")
@@ -510,18 +596,28 @@ export async function getUserConversationsAction(): Promise<{
     return { error: error.message, conversations: [] };
   }
 
-  // Filtrar únicamente conversaciones con match bilateral formalmente confirmado
+  // Filtrar conversaciones vigentes donde exista interés de al menos una parte (incluye user_interested, lawyer_interested y matched)
   const confirmedConvs = (convs || []).filter((c: any) => {
     const matchData = toObj(c.matches);
+    const caseData = toObj(c.cases);
+    const lawyerData = toObj(matchData?.lawyer_profiles);
+
+    const isParticipant =
+      caseData?.user_id === user.id || lawyerData?.user_id === user.id;
+
+    if (!isParticipant || !matchData || matchData.status === "discarded") {
+      return false;
+    }
+
     return (
-      matchData?.status === "matched" &&
-      matchData?.user_interest === true &&
-      matchData?.lawyer_interest === true
+      matchData.status === "matched" ||
+      matchData.user_interest === true ||
+      matchData.lawyer_interest === true
     );
   });
 
-  // Normalizar y formatear cada conversación soportando objetos o arrays de PostgREST
-  const formatted: ConversationItem[] = confirmedConvs
+  // Normalizar, deduplicar y formatear cada conversación (H20)
+  const rawFormattedWithKeys = confirmedConvs
     .map((c: any) => {
       const caseData = toObj(c.cases);
       const matchData = toObj(c.matches);
@@ -540,17 +636,24 @@ export async function getUserConversationsAction(): Promise<{
         ? lawyerProfiles?.avatar_url
         : clientProfiles?.avatar_url;
 
-      const sortedMessages = (c.messages || []).sort(
-        (a: any, b: any) =>
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      const sortedMessages = (c.messages || [])
+        .filter((m: any) => m.message?.trim() !== "Mensaje de prueba: ignorar.")
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
 
       const lastMsg = sortedMessages[0];
       const unreadCount = sortedMessages.filter(
         (m: any) => m.sender_id !== user.id && !m.read_at
       ).length;
 
-      return {
+      const fallbackMessage =
+        matchData?.status === "user_interested"
+          ? "Solicitud de asesoría enviada"
+          : "Conversación iniciada";
+
+      const item: ConversationItem = {
         id: c.id,
         caseId: c.case_id,
         caseTitle: caseData?.title || "Caso Legal",
@@ -560,16 +663,31 @@ export async function getUserConversationsAction(): Promise<{
         counterpartRole: isClient ? ("lawyer" as const) : ("client" as const),
         barAssociation: isClient ? lawyerData?.bar_association || null : null,
         barNumber: isClient ? lawyerData?.bar_number || null : null,
-        lastMessage: lastMsg?.message || "Conversación iniciada",
-        lastMessageAt: lastMsg?.created_at || c.created_at,
+        lastMessage: (lastMsg?.message || fallbackMessage).replace(/\*\*/g, ""),
+        lastMessageAt: lastMsg?.created_at || c.last_message_at || c.created_at,
         unreadCount,
         isActive: c.is_active,
+        matchStatus: matchData?.status || null,
       };
+
+      const dedupKey = `${c.case_id}:${lawyerData?.id || matchData?.id || c.id}`;
+
+      return { item, dedupKey };
     })
     .sort(
       (a, b) =>
-        new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+        new Date(b.item.lastMessageAt).getTime() -
+        new Date(a.item.lastMessageAt).getTime()
     );
+
+  // Evitar conversaciones duplicadas para el mismo caso y abogado/match
+  const seenConversations = new Set<string>();
+  const formatted: ConversationItem[] = [];
+  for (const entry of rawFormattedWithKeys) {
+    if (seenConversations.has(entry.dedupKey)) continue;
+    seenConversations.add(entry.dedupKey);
+    formatted.push(entry.item);
+  }
 
   return { conversations: formatted };
 }

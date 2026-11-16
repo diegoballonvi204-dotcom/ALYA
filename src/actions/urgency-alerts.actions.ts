@@ -37,38 +37,51 @@ export async function getUrgentFlagrancyCasesAction() {
     return { error: "Solo abogados autorizados pueden monitorear flagrancia.", urgentCases: [] };
   }
 
-  // Obtener casos con urgencia 'immediate' publicados o en progreso reciente
-  const { data: cases, error } = await supabase
-    .from("cases")
+  // Obtener casos urgentes vinculados a matches vigentes del abogado (única fuente de datos con el panel)
+  const { data: matches, error } = await supabase
+    .from("matches")
     .select(`
       id,
-      title,
-      description,
-      city,
-      urgency,
-      police_station,
-      emergency_contact_phone,
-      created_at,
       status,
-      specialties:specialties!cases_specialty_id_fkey (name)
+      cases!inner (
+        id,
+        title,
+        description,
+        city,
+        urgency,
+        police_station,
+        emergency_contact_phone,
+        created_at,
+        status,
+        specialties:specialties!cases_specialty_id_fkey (name)
+      )
     `)
-    .in("urgency", ["immediate", "high"])
-    .in("status", ["published", "matching", "contacted", "in_progress"])
+    .eq("lawyer_id", lawyer.id)
+    .neq("status", "discarded")
+    .eq("cases.urgency", "immediate")
+    .in("cases.status", ["published", "matching", "contacted", "in_progress"])
     .order("created_at", { ascending: false })
-    .limit(5);
+    .limit(10);
 
   if (error) {
     return { error: error.message, urgentCases: [] };
   }
 
   const now = Date.now();
-  const urgentCases: UrgentFlagrancyCase[] = (cases || []).map((c: any) => {
+  const seenCaseIds = new Set<string>();
+  const urgentCases: UrgentFlagrancyCase[] = [];
+
+  for (const m of matches || []) {
+    const c = (m as any).cases;
+    if (!c || seenCaseIds.has(c.id)) continue;
+    seenCaseIds.add(c.id);
+
     const createdTime = new Date(c.created_at).getTime();
-    const hoursElapsed = Math.floor((now - createdTime) / (1000 * 60 * 60));
+    const hoursElapsed = Math.max(0, Math.floor((now - createdTime) / (1000 * 60 * 60)));
     // Plazo constitucional de 48 horas de detención policial
     const hoursRemainingInFlagrancy = Math.max(0, 48 - hoursElapsed);
 
-    return {
+    urgentCases.push({
       id: c.id,
       title: c.title,
       description: c.description,
@@ -80,8 +93,8 @@ export async function getUrgentFlagrancyCasesAction() {
       hoursElapsed,
       hoursRemainingInFlagrancy,
       specialtyName: c.specialties?.name || "Derecho Penal / Flagrancia",
-    };
-  });
+    });
+  }
 
   return { urgentCases };
 }
@@ -112,22 +125,39 @@ export async function generateEmergencyWhatsAppLinkAction(caseId: string) {
   }
 
   const clientProfile = caseItem.profiles as any;
-  const targetPhone = caseItem.emergency_contact_phone || clientProfile?.phone || "51999999999";
+  const rawPhone =
+    caseItem.emergency_contact_phone ||
+    clientProfile?.phone ||
+    process.env.NEXT_PUBLIC_ALYA_EMERGENCY_PHONE ||
+    "";
   const clientName = `${clientProfile?.first_name || "Cliente"} ${clientProfile?.last_name || ""}`.trim();
   const policeStation = caseItem.police_station || "la Comisaría de Turno";
 
   // Mensaje estructurado de asistencia jurídica urgente
-  const textMessage = `*ALERTA DE GUARDIA LEGAL — ALYA PERÚ* 🚨%0A%0A` +
-    `Estimado(a) *${clientName}*, le escribe su abogado asignado a través de la Red de Flagrancia de ALYA.%0A%0A` +
-    `📌 *Caso:* ${caseItem.title}%0A` +
-    `🏛️ *Sede:* ${policeStation} (${caseItem.city})%0A` +
-    `⚖️ *Asistencia:* Me estoy apersonando y requiero coordinar inmediatamente la defensa técnica antes del vencimiento del plazo perentorio de 48h (Art. 2.24.f Constitución).%0A%0A` +
-    `Por favor confírmeme si se encuentra con el fiscal de turno en este momento.`;
+  const rawMessage =
+    `ALERTA DE GUARDIA LEGAL — ALYA PERÚ\n\n` +
+    `Estimado(a) ${clientName}, le escribe su abogado a través de la Red de Flagrancia de ALYA.\n\n` +
+    `Caso: ${caseItem.title}\n` +
+    `Sede: ${policeStation} (${caseItem.city})\n` +
+    `Asistencia: Me estoy apersonando y requiero coordinar inmediatamente la defensa técnica antes del vencimiento del plazo perentorio de 48h (Art. 2.24.f Constitución).\n\n` +
+    `Por favor confírmeme su ubicación exacta o si se encuentra con el fiscal de turno.`;
 
-  const cleanPhone = targetPhone.replace(/[^0-9]/g, "");
-  const formattedPhone = cleanPhone.startsWith("51") ? cleanPhone : `51${cleanPhone}`;
+  const digits = String(rawPhone).replace(/[^0-9]/g, "");
+  const formattedPhone =
+    digits.length === 9 && digits.startsWith("9")
+      ? `51${digits}`
+      : digits.startsWith("51") && digits.length >= 11
+      ? digits
+      : digits;
 
-  const whatsappUrl = `https://wa.me/${formattedPhone}?text=${textMessage}`;
+  const encodedText = encodeURIComponent(rawMessage);
+  const whatsappUrl = formattedPhone
+    ? `https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodedText}`
+    : `https://api.whatsapp.com/send?text=${encodedText}`;
 
-  return { success: true, whatsappUrl };
+  return {
+    success: true,
+    whatsappUrl,
+    hasClientPhone: Boolean(caseItem.emergency_contact_phone || clientProfile?.phone),
+  };
 }

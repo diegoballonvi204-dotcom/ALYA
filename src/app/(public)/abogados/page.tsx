@@ -15,7 +15,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function PublicLawyersDirectoryPage() {
+export default async function PublicLawyersDirectoryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ specialty?: string; city?: string }>;
+}) {
+  const params = await searchParams;
   const [lawyersRes, specsRes] = await Promise.all([
     getPublicLawyersAction({ limit: 50 }),
     getSpecialtiesCatalogAction(),
@@ -28,6 +33,8 @@ export default async function PublicLawyersDirectoryPage() {
         <LawyerDirectoryView
           initialLawyers={lawyersRes.lawyers || []}
           specialties={specsRes.specialties || []}
+          initialSpecialtySlug={params.specialty}
+          initialCity={params.city}
         />
       </main>
     </div>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import LawyerProfileEditor from "@/components/lawyer/LawyerProfileEditor";
@@ -5,6 +6,12 @@ import LawyerTierBadge from "@/components/lawyer/LawyerTierBadge";
 import { getMyLawyerSubscriptionAction } from "@/actions/subscription.actions";
 import Link from "next/link";
 import { ArrowLeft, UserCircle2 } from "lucide-react";
+
+export const metadata: Metadata = {
+  title: "Mi Perfil Profesional | ALYA Perú",
+  description:
+    "Configura tu presentación profesional, número celular, ramas de especialización y modalidades de atención en ALYA Perú.",
+};
 
 export default async function LawyerProfilePage() {
   const supabase = await createClient();
