@@ -562,6 +562,29 @@ export async function submitConsultationVoucherAction(params: SubmitConsultation
     };
   }
 
+  // 1. Intentar registrar vía RPC atómica SECURITY DEFINER
+  const { data: rpcData, error: rpcErr } = await supabase.rpc(
+    "submit_consultation_escrow_payment" as any,
+    {
+      p_consultation_id: params.consultationId,
+      p_payment_method: params.paymentMethod,
+      p_operation_number: params.operationNumber.trim(),
+      p_voucher_url: params.voucherUrl,
+    }
+  );
+
+  if (!rpcErr && (rpcData as any)?.success) {
+    if ((rpcData as any)?.conversation_id) {
+      revalidatePath(`/chat/${(rpcData as any).conversation_id}`);
+    }
+    revalidatePath("/lawyer/schedule");
+    return {
+      success: true,
+      message: (rpcData as any)?.message || "Comprobante verificado. Fondos en custodia asegurada.",
+    };
+  }
+
+  // 2. Fallback directo a tablas si la RPC aún no fue desplegada
   const { data: c, error: cErr } = await supabase
     .from("consultations")
     .select("id, client_id, case_id, lawyer_id, agreed_price")
@@ -610,6 +633,58 @@ export async function submitConsultationVoucherAction(params: SubmitConsultation
 
   revalidatePath("/lawyer/schedule");
   return { success: true, message: "Comprobante verificado. Fondos en custodia asegurada." };
+}
+
+/**
+ * Carga directa de comprobante de custodia desde el servidor vía FormData
+ */
+export async function uploadConsultationVoucherAction(formData: FormData) {
+  const file = formData.get("file") as File | null;
+  const consultationId = formData.get("consultationId") as string | null;
+  const paymentMethod = formData.get("paymentMethod") as "yape" | "plin" | "bank_transfer" | null;
+  const operationNumber = formData.get("operationNumber") as string | null;
+
+  if (!file || !consultationId || !paymentMethod || !operationNumber) {
+    return { success: false, error: "Datos incompletos para procesar el comprobante." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { success: false, error: "No autenticado." };
+
+  try {
+    const ext = file.name.split(".").pop() || "png";
+    const filePath = `consultations/${consultationId}/${Date.now()}_voucher.${ext}`;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const { error: uploadErr } = await supabase.storage
+      .from("case-documents")
+      .upload(filePath, buffer, {
+        contentType: file.type || "image/png",
+        upsert: true,
+      });
+
+    if (uploadErr) {
+      return { success: false, error: `Error subiendo comprobante: ${uploadErr.message}` };
+    }
+
+    const { data: signed } = await supabase.storage
+      .from("case-documents")
+      .createSignedUrl(filePath, 86400 * 30);
+
+    return await submitConsultationVoucherAction({
+      consultationId,
+      paymentMethod,
+      operationNumber: operationNumber.trim(),
+      voucherUrl: signed?.signedUrl || filePath,
+    });
+  } catch (err: any) {
+    return { success: false, error: err.message || "Error procesando el archivo del comprobante." };
+  }
 }
 
 /**
