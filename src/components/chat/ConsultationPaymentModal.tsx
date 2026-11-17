@@ -20,6 +20,7 @@ import { createClient } from "@/lib/supabase/client";
 import {
   processCardConsultationPaymentAction,
   submitConsultationVoucherAction,
+  uploadConsultationVoucherAction,
 } from "@/actions/schedule.actions";
 
 interface ConsultationPaymentModalProps {
@@ -184,26 +185,51 @@ export function ConsultationPaymentModal({
     setErrorMsg(null);
 
     try {
-      const supabase = createClient();
-      const ext = voucherFile.name.split(".").pop();
-      const filePath = `consultations/${consultationId}/${Date.now()}_voucher.${ext}`;
+      let voucherUrl: string | null = null;
+      let usedServerUpload = false;
 
-      const { error: uploadErr } = await supabase.storage
-        .from("case-documents")
-        .upload(filePath, voucherFile, { upsert: true });
+      // 1. Intentar subida directa client-side
+      try {
+        const supabase = createClient();
+        const ext = voucherFile.name.split(".").pop() || "png";
+        const filePath = `consultations/${consultationId}/${Date.now()}_voucher.${ext}`;
 
-      if (uploadErr) throw uploadErr;
+        const { error: uploadErr } = await supabase.storage
+          .from("case-documents")
+          .upload(filePath, voucherFile, { upsert: true });
 
-      const { data: signed } = await supabase.storage
-        .from("case-documents")
-        .createSignedUrl(filePath, 86400 * 30); // 30 días de acceso
+        if (!uploadErr) {
+          const { data: signed } = await supabase.storage
+            .from("case-documents")
+            .createSignedUrl(filePath, 86400 * 30); // 30 días de acceso
+          voucherUrl = signed?.signedUrl || filePath;
+        } else {
+          console.warn("Subida client-side bloqueada por storage policy, usando fallback seguro:", uploadErr.message);
+          usedServerUpload = true;
+        }
+      } catch (clientUploadErr) {
+        console.warn("Excepción en subida client-side:", clientUploadErr);
+        usedServerUpload = true;
+      }
 
-      const res = await submitConsultationVoucherAction({
-        consultationId,
-        paymentMethod,
-        operationNumber: operationNumber.trim(),
-        voucherUrl: signed?.signedUrl || filePath,
-      });
+      let res: { success: boolean; error?: string; message?: string };
+
+      if (usedServerUpload || !voucherUrl) {
+        // 2. Fallback robusto vía Server Action (FormData)
+        const fd = new FormData();
+        fd.append("file", voucherFile);
+        fd.append("consultationId", consultationId);
+        fd.append("paymentMethod", paymentMethod);
+        fd.append("operationNumber", operationNumber.trim());
+        res = await uploadConsultationVoucherAction(fd);
+      } else {
+        res = await submitConsultationVoucherAction({
+          consultationId,
+          paymentMethod,
+          operationNumber: operationNumber.trim(),
+          voucherUrl,
+        });
+      }
 
       if (res.success) {
         setSuccessMsg("¡Comprobante verificado! Fondos protegidos en custodia ALYA.");
@@ -212,10 +238,10 @@ export function ConsultationPaymentModal({
           onClose();
         }, 2200);
       } else {
-        setErrorMsg(res.error || "Error al registrar constancia");
+        setErrorMsg(res.error || "No se pudo registrar la constancia de abono.");
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "Error al subir comprobante");
+      setErrorMsg(err.message || "Error al procesar el comprobante.");
     } finally {
       setIsProcessing(false);
     }
